@@ -73,8 +73,12 @@ module NestedScheduler
       Fiber.new(name, &block).tap do |fiber|
         register_fiber(fiber)
         thread = next_thread!
-        # Currently guaranteed not to be the same thread..
-
+        # Until support of embedding a pool in a current pool of
+        # schedulers, this will be guaranteed not to be the same
+        # thread. Also scheduler.enqueue isn't public so would have to
+        # go through Crystal::Scheduler.enqueue, which will enqueue in
+        # the scheduler family of the *current* thread. Which is
+        # absolutely not what we want.
         thread.scheduler.send_fiber fiber
       end
     end
