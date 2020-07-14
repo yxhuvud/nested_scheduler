@@ -25,13 +25,14 @@ module NestedScheduler
 
       # original init_workers hijack the current thread as part of the
       # bootstrap process. Only do that when actually bootstrapping.
+      thread = Thread.current
       if bootstrap
         count -= 1
-        worker_loop = Fiber.new(name: "Worker Loop") { Thread.current.scheduler.run_loop }
+        worker_loop = Fiber.new(name: "Worker Loop") { thread.scheduler.run_loop }
         register_fiber(worker_loop)
-        scheduler = Thread.current.scheduler
+        scheduler = thread.scheduler
         scheduler.pool = self
-        @workers << Thread.current
+        @workers << thread
         scheduler.actually_enqueue worker_loop
       end
       pending = Atomic(Int32).new(count)
