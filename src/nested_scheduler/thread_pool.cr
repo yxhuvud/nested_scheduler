@@ -71,6 +71,18 @@ module NestedScheduler
       end
     end
 
+    # Cooperatively cancel the current pool. That means the users of
+    # the pool need to actively check if it is cancelled or not.
+    def cancel
+      # TBH, not totally certain it actually needs to be atomic..
+      @cancelled.set 1
+    end
+
+    # Has the pool been cancelled?
+    def cancelled?
+      @cancelled.get > 0
+    end
+
     def register_fiber(fiber)
       fibers.push(fiber)
     end

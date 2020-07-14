@@ -43,7 +43,23 @@ describe NestedScheduler do
       values.sort.should eq [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     end
 
-    it "runs code in new threads" do
+    it "can be soft canceled" do
+      count = 0
+      NestedScheduler::ThreadPool.nursery do |pl|
+        pl.spawn do
+          sleep 0.01
+          pl.cancel
+        end
+        pl.spawn do
+          pl.cancelled?.should be_false
+          loop do
+            break if pl.cancelled?
+            count += 1
+            sleep 0.001
+          end
+        end
+      end
+      count.should be > 7 # allow for some overhead..
     end
   end
 
