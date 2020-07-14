@@ -27,14 +27,17 @@ module NestedScheduler
       done_channel.send(nil)
     end
 
-    def initialize(count = 1, use_existing_thread = false, @name = nil)
+    def initialize(count = 1, bootstrap = false, @name = nil)
       @done_channel = Channel(Nil).new
       @rr_target = 0
       @workers = Array(Thread).new(initial_capacity: count)
       @fibers = Thread::LinkedList(Fiber).new
       @spawned = false
+      @cancelled = Atomic(Int32).new(0)
 
-      if use_existing_thread
+      # original init_workers hijack the current thread as part of the
+      # bootstrap process. Only do that when actually bootstrapping.
+      if bootstrap
         count -= 1
         worker_loop = Fiber.new(name: "Worker Loop") { Thread.current.scheduler.run_loop }
         register_fiber(worker_loop)
@@ -56,7 +59,7 @@ module NestedScheduler
 
       # Wait for all worker threads to be fully ready to be used
       while pending.get > 0
-        Fiber.yield  if use_existing_thread
+        Fiber.yield
       end
     end
 

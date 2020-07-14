@@ -15,7 +15,7 @@ class ::Crystal::Scheduler
   end
 
   def self.init_workers
-    NestedScheduler::ThreadPool.new(worker_count, use_existing_thread: true, name: "Root Pool")
+    NestedScheduler::ThreadPool.new(worker_count, bootstrap: true, name: "Root Pool")
   end
 
   def run_loop
