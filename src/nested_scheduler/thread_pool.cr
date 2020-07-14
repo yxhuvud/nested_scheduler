@@ -7,24 +7,12 @@ module NestedScheduler
     property spawned
 
     def self.nursery(thread_count = 1, name = "Child pool")
-      raise ArgumentError.new "No support for nested thread pools in same thread yet" if thread_count < 1
+      if thread_count < 1
+        raise ArgumentError.new "No support for nested thread pools in same thread yet"
+      end
       pool = new(thread_count, name: name)
       yield pool
       pool.done_channel.receive if pool.spawned
-    end
-
-    def register_fiber(fiber)
-      fibers.push(fiber)
-    end
-
-    def unregister_fiber(fiber)
-      fibers.delete(fiber)
-      first = true
-      fibers.unsafe_each do
-        return unless first
-        first = false
-      end
-      done_channel.send(nil)
     end
 
     def initialize(count = 1, bootstrap = false, @name = nil)
@@ -81,6 +69,20 @@ module NestedScheduler
         # absolutely not what we want.
         thread.scheduler.send_fiber fiber
       end
+    end
+
+    def register_fiber(fiber)
+      fibers.push(fiber)
+    end
+
+    def unregister_fiber(fiber)
+      fibers.delete(fiber)
+      first = true
+      fibers.unsafe_each do
+        return unless first
+        first = false
+      end
+      done_channel.send(nil)
     end
   end
 end
