@@ -69,6 +69,8 @@ class ::Crystal::Scheduler
   #   reschedule
   # end
 
+  # def yield
+
   # enqueue ? - probably not, simply redefining creates issues with libevent?!
 
 end
