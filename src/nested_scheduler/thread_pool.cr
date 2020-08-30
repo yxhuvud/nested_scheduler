@@ -6,16 +6,25 @@ module NestedScheduler
     property fibers
     property spawned
 
-    def self.nursery(thread_count = 1, name = "Child pool")
+    property io_context : ::NestedScheduler::IOContext
+
+    def self.nursery(thread_count = 1, name = "Child pool", io_context = nil)
+      unless io_context
+        if p = Thread.current.scheduler.pool
+          io_context ||= p.io_context
+        end
+        raise "Pool missing IO Context" unless io_context
+      end
       if thread_count < 1
         raise ArgumentError.new "No support for nested thread pools in same thread yet"
       end
-      pool = new(thread_count, name: name)
+      pool = new(io_context, thread_count, name: name)
       yield pool
       pool.done_channel.receive if pool.spawned
     end
 
-    def initialize(count = 1, bootstrap = false, @name = nil)
+    def initialize(io_context : NestedScheduler::IOContext, count = 1, bootstrap = false, @name = nil)
+      @io_context = io_context
       @done_channel = Channel(Nil).new
       @rr_target = 0
       @workers = Array(Thread).new(initial_capacity: count)
@@ -32,6 +41,7 @@ module NestedScheduler
         register_fiber(worker_loop)
         scheduler = thread.scheduler
         scheduler.pool = self
+        scheduler.io_context = io_context.new
         @workers << thread
         scheduler.actually_enqueue worker_loop
       end
@@ -40,6 +50,7 @@ module NestedScheduler
         @workers << Thread.new do
           scheduler = Thread.current.scheduler
           scheduler.pool = self
+          scheduler.io_context = io_context.new
           register_fiber(Fiber.current)
           pending.sub(1)
           scheduler.run_loop

@@ -1,9 +1,15 @@
 require "crystal/system/thread"
 require "crystal/scheduler"
 require "../thread_pool"
+require "../libevent_context"
 
 class ::Crystal::Scheduler
   property pool : ::NestedScheduler::ThreadPool?
+  property io_context : ::NestedScheduler::IOContext?
+
+  def io
+    io_context || raise "IO Context Not yet initialized, BUG"
+  end
 
   protected def find_target_thread
     pool.try { |p| p.next_thread! } || Thread.current
@@ -15,7 +21,10 @@ class ::Crystal::Scheduler
   end
 
   def self.init_workers
-    NestedScheduler::ThreadPool.new(worker_count, bootstrap: true, name: "Root Pool")
+    NestedScheduler::ThreadPool.new(
+      NestedScheduler::LibeventContext.new,
+      worker_count, bootstrap: true, name: "Root Pool"
+    )
   end
 
   def run_loop
