@@ -1,7 +1,9 @@
 require "crystal/system/thread"
 require "crystal/scheduler"
 require "../thread_pool"
+require "../io_context"
 require "../libevent_context"
+require "../io_uring_context"
 
 class ::Crystal::Scheduler
   property pool : ::NestedScheduler::ThreadPool?
@@ -48,29 +50,22 @@ class ::Crystal::Scheduler
   end
 
   protected def reschedule : Nil
-    loop do
-      if runnable = @lock.sync { @runnables.shift? }
-        unless runnable == Fiber.current
-          runnable.resume
-        end
-        break
-      else
-        Crystal::EventLoop.run_once
-      end
-    end
+    io.reschedule { @lock.sync { @runnables.shift? } }
 
-    {% if flag?(:preview_mt) %}
-      release_free_stacks
-    {% end %}
+    release_free_stacks
   end
 
-  #  protected def sleep(time : Time::Span) : Nil
-  #   @current.resume_event.add(time)
-  #   reschedule
-  # end
+  protected def sleep(time : Time::Span) : Nil
+    io.sleep(@current, time)
+    reschedule
+  end
 
-  # def yield
+  protected def yield : Nil
+    sleep(0.seconds)
+  end
 
-  # enqueue ? - probably not, simply redefining creates issues with libevent?!
-
+  protected def yield(fiber : Fiber) : Nil
+    io.sleep(@current, 0.seconds)
+    resume(fiber)
+  end
 end

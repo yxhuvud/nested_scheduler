@@ -61,6 +61,8 @@ describe NestedScheduler do
       end
       count.should be > 7 # allow for some overhead..
     end
+
+    pending "handles block exceptions" 
   end
 
   context "spawning original worker threads" do
