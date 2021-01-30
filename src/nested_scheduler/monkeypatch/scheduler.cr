@@ -11,7 +11,13 @@ class ::Crystal::Scheduler
   property io_context : ::NestedScheduler::IOContext?
 
   def io
-    io_context || raise "IO Context Not yet initialized, BUG"
+    # Unfortunately I havn't figured out exactly where this is called
+    # the first time (it doesn't help that the stacktrace I get don't
+    # have line numbers), and as it is called sometime *before*
+    # init_workers, I have no choice but to have a fallback :(.
+    return io_context if io_context
+    self.io_context = NestedScheduler::LibeventContext.new
+    # raise "IO Context Not yet initialized, BUG"
   end
 
   protected def find_target_thread

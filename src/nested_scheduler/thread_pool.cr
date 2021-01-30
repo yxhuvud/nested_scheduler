@@ -46,7 +46,11 @@ module NestedScheduler
       if bootstrap
         scheduler = thread.scheduler
         scheduler.pool = self
-        scheduler.io_context = io_context.new
+        if scheduler.io_context
+          raise if scheduler.io_context.class != io_context
+        else
+          scheduler.io_context = io_context.new
+        end
         count -= 1
         worker_loop = Fiber.new(name: WORKER_NAME) { thread.scheduler.run_loop }
         @workers << thread
