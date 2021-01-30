@@ -23,10 +23,10 @@ module NestedScheduler
       pool = new(io_context, thread_count, name: name)
       begin
         yield pool
-      # TODO: Better exception behavior. Needs to support different
-      # kinds of failure modes and stacktrace propagation.
+        # TODO: Better exception behavior. Needs to support different
+        # kinds of failure modes and stacktrace propagation.
       ensure
-        pool.done_channel.receive if pool.spawned.get > 0
+        pool.wait_until_done
       end
     end
 
@@ -37,6 +37,7 @@ module NestedScheduler
       @workers = Array(Thread).new(initial_capacity: count)
       @fibers = Thread::LinkedList(Fiber).new
       @spawned = Atomic(Int32).new(0)
+      @waiting_for_done = Atomic(Int32).new(0)
       @cancelled = Atomic(Int32).new(0)
 
       # original init_workers hijack the current thread as part of the
@@ -114,9 +115,16 @@ module NestedScheduler
     def unregister_fiber(fiber)
       fibers.delete(fiber)
       old = @spawned.sub(1)
-      if old == 1
+      # If @waiting_for_done == 0, then .nursery block hasn't finished yet,
+      # which means there can still be new fibers that are spawned.
+      if old == 1 && @waiting_for_done.get > 0
         done_channel.send(nil)
       end
+    end
+
+    def wait_until_done
+      @waiting_for_done.set(1)
+      done_channel.receive if @spawned.get > 0
     end
   end
 end

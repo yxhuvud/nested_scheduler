@@ -30,15 +30,12 @@ module NestedScheduler
             # TODO: Improve this, once io_uring is supported and we
             # have full picture. This would avoid having to do
             # dispatch on the union type of io_contexts..
-            # TODO: Replace code with commented, on crystal 1.0
-            # socket.wait_readable(timeout: timeout, raise_if_closed: false) do
-            #   raise TimeoutError.new("Accept timed out")
-            # end
-            # return if socket.closed?
-
-            socket.wait_readable rescue nil
+            socket.wait_readable(timeout: timeout, raise_if_closed: false) do
+              raise ::IO::TimeoutError.new("Accept timed out")
+            end
+            return if socket.closed?
           else
-            raise Socket::Error.from_errno("accept")
+            raise Socket::ConnectError.from_errno("accept")
           end
         else
           return client_fd
@@ -101,6 +98,25 @@ module NestedScheduler
 
     def sleep(fiber, time) : Nil
       fiber.resume_event.add(time)
+    end
+
+    def yield(fiber)
+      sleep(fiber, 0.seconds)
+    end
+
+    def prepare_close(file)
+      file.evented_close
+    end
+
+    def close(fd, _fiber)
+      if LibC.close(fd) != 0
+        case Errno.value
+        when Errno::EINTR, Errno::EINPROGRESS
+        # ignore
+        else
+          raise ::IO::Error.from_errno("Error closing file")
+        end
+      end
     end
 
     def reschedule

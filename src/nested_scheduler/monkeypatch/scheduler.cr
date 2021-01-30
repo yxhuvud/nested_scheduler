@@ -7,6 +7,7 @@ require "../io_uring_context"
 
 class ::Crystal::Scheduler
   property pool : ::NestedScheduler::ThreadPool?
+  # TODO: Move io_context to Thread?
   property io_context : ::NestedScheduler::IOContext?
 
   def io
@@ -61,11 +62,11 @@ class ::Crystal::Scheduler
   end
 
   protected def yield : Nil
-    sleep(0.seconds)
+    io.yield(@current)
   end
 
   protected def yield(fiber : Fiber) : Nil
-    io.sleep(@current, 0.seconds)
+    io.yield(@current)
     resume(fiber)
   end
 end

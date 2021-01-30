@@ -2,19 +2,12 @@ require "fiber"
 require "./scheduler"
 
 class Fiber
-  def self.inactive(fiber : Fiber)
-    fibers.delete(fiber)
-    # monkeypatch: Is this safe with regards to thread lifecycle? Dunno.
-    if pool = Thread.current.scheduler.pool
-      pool.unregister_fiber(fiber)
-    end
-  end
-
-    # :nodoc:
   def run
     GC.unlock_read
     @proc.call
   rescue ex
+    # TODO: Push to thread pool.
+    Crystal::System.print_error "fiber run: #{name}.\n"
     if name = @name
       STDERR.print "Unhandled exception in spawn(name: #{name}): "
     else
@@ -23,23 +16,47 @@ class Fiber
     ex.inspect_with_backtrace(STDERR)
     STDERR.flush
   ensure
-    {% if flag?(:preview_mt) %}
-      Crystal::Scheduler.enqueue_free_stack @stack
-    {% else %}
-      Fiber.stack_pool.release(@stack)
-    {% end %}
+    @alive = false
+    cleanup
+    Crystal::Scheduler.reschedule
+  end
+
+  def cleanup
+    scheduler = Thread.current.scheduler
+    # Sigh, scheduler.enqueue_free_stack is protected.
+    Crystal::Scheduler.enqueue_free_stack @stack
     # Remove the current fiber from the linked list
-    ## NOTE by monkeypatch: following line is the changed one:
-    Fiber.inactive(self)
+    Fiber.fibers.delete(self)
+    # monkeypatch: Is this safe with regards to thread lifecycle? Dunno.
+    if pool = scheduler.pool
+      pool.unregister_fiber(self)
+    end
     # Delete the resume event if it was used by `yield` or `sleep`
     @resume_event.try &.free
     @timeout_event.try &.free
     @timeout_select_action = nil
-
-    @alive = false
-    Crystal::Scheduler.reschedule
   end
 
-  # Fixme:  resume_event  timeout_event
-  
+  # TODO: move to io context
+  def resume_event
+    if p = Thread.current.scheduler.pool
+      if p.io_context.class == NestedScheduler::IoUringContext
+        Crystal::System.print_error "TODO RE\n"
+        exit
+      end
+    end
+    @resume_event ||= Crystal::EventLoop.create_resume_event(self)
+  end
+
+  # TODO: move to io context
+  def timeout_event
+    if p = Thread.current.scheduler.pool
+      if p.io_context.class == NestedScheduler::IoUringContext
+        Crystal::System.print_error "TODO TE\n"
+        exit
+      end
+    end
+
+    @timeout_event ||= Crystal::EventLoop.create_timeout_event(self)
+  end
 end

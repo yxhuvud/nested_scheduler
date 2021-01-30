@@ -7,3 +7,8 @@ authors:
 crystal: 0.35.1
 
 license: MIT
+
+dependencies:
+  ior:
+    github: yxhuvud/ior
+    branch: master
