@@ -1,5 +1,4 @@
-
-# Ideally, this class should not need to be monkeypatched but simply used by the libevent_context, 
+# Ideally, this class should not need to be monkeypatched but simply used by the libevent_context,
 module IO::Evented
   private def add_read_event(timeout = @read_timeout) : Nil
     io, fiber = context

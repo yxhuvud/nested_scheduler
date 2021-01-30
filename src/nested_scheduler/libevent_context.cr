@@ -112,7 +112,7 @@ module NestedScheduler
       if LibC.close(fd) != 0
         case Errno.value
         when Errno::EINTR, Errno::EINPROGRESS
-        # ignore
+          # ignore
         else
           raise ::IO::Error.from_errno("Error closing file")
         end

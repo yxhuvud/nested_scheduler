@@ -32,7 +32,6 @@ describe NestedScheduler::IoUringContext do
     run.should be_true
   end
 
-  
   # it "works with channels" do
   #   done = Channel(Nil).new(1)
 

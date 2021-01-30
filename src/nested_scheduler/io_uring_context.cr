@@ -141,7 +141,6 @@ module NestedScheduler
             next
           end
           if cqe.success?
-
             return cqe.res
           elsif cqe.bad_file_descriptor?
             raise ::IO::Error.new "File not open for writing"
@@ -171,7 +170,7 @@ module NestedScheduler
       ring.sqe.close(fd, user_data: fiber.object_id)
       ring_wait do |cqe|
         return if cqe.success?
-        # Fixme: verify? 
+        # Fixme: verify?
         return if -cqe.res == Errno::EINTR || -cqe.res == Errno::EINPROGRESS
 
         raise ::IO::Error.from_errno("Error closing file")
