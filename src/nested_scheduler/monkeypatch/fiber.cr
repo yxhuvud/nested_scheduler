@@ -39,6 +39,8 @@ class Fiber
     @resume_event.try &.free
     @timeout_event.try &.free
     @timeout_select_action = nil
+    # Sigh, scheduler.enqueue_free_stack is protected.
+    Crystal::Scheduler.enqueue_free_stack @stack
   end
 
   # TODO: move to io context
