@@ -1,3 +1,5 @@
+require "./linked_list2"
+
 module NestedScheduler
   class ThreadPool
     WORKER_NAME = "Worker Loop"
@@ -5,7 +7,7 @@ module NestedScheduler
     property workers
     property done_channel
     property name : String?
-    property fibers
+    property fibers : NestedScheduler::LinkedList2(Fiber)
     property spawned
 
     property io_context : ::NestedScheduler::IOContext
@@ -35,7 +37,7 @@ module NestedScheduler
       @done_channel = Channel(Nil).new
       @rr_target = 0
       @workers = Array(Thread).new(initial_capacity: count)
-      @fibers = Thread::LinkedList(Fiber).new
+      @fibers = NestedScheduler::LinkedList2(Fiber).new
       @spawned = Atomic(Int32).new(0)
       @waiting_for_done = Atomic(Int32).new(0)
       @cancelled = Atomic(Int32).new(0)
