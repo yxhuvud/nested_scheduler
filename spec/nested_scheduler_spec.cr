@@ -78,6 +78,16 @@ describe NestedScheduler do
 
     it "doesn't break basic spawning" do
       chan = Channel(Int32).new
+
+      spawn { chan.send 1 }
+
+      res = chan.receive
+      res.should eq 1
+    end
+
+    it "doesn't break basic spawning1" do
+      chan = Channel(Int32).new
+
       spawn do
         chan.send 1
       end
@@ -85,6 +95,38 @@ describe NestedScheduler do
       spawn do
         chan.send 2
       end
+
+      res = chan.receive + chan.receive
+      res.should eq 3
+    end
+
+    it "doesn't break basic spawning2" do
+      chan = Channel(Int32).new
+
+      spawn do
+        chan.send 1
+      end
+
+      spawn chan.send(2)
+
+      res = chan.receive + chan.receive
+      res.should eq 3
+    end
+
+    it "doesn't break basic spawning3" do
+      chan = Channel(Int32).new
+
+      spawn chan.send(1)
+
+      res = chan.receive + chan.receive
+      res.should eq 1
+    end
+
+    it "doesn't break basic spawning4" do
+      chan = Channel(Int32).new
+
+      spawn chan.send(1)
+      spawn chan.send(2)
 
       res = chan.receive + chan.receive
       res.should eq 3
