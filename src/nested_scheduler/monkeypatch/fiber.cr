@@ -2,6 +2,10 @@ require "fiber"
 require "./scheduler"
 
 class Fiber
+  # For thread pool fiber list
+  property next2 : Fiber?
+  property previous2 : Fiber?
+
   def run
     GC.unlock_read
     @proc.call
