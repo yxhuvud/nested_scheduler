@@ -125,7 +125,7 @@ module NestedScheduler
           unless runnable == Fiber.current
             runnable.resume
           end
-          break
+          return
         else
           Crystal::EventLoop.run_once
         end
