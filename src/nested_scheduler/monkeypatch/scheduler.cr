@@ -10,7 +10,7 @@ class ::Crystal::Scheduler
   # TODO: Move io_context to Thread?
   property io_context : ::NestedScheduler::IOContext?
 
-  def io
+  def io : NestedScheduler::IOContext
     # Unfortunately I havn't figured out exactly where this is called
     # the first time (it doesn't help that the stacktrace I get don't
     # have line numbers), and as it is called sometime *before*
