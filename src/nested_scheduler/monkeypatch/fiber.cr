@@ -26,11 +26,9 @@ class Fiber
   end
 
   def cleanup
-    scheduler = Thread.current.scheduler
-    # Sigh, scheduler.enqueue_free_stack is protected.
-    Crystal::Scheduler.enqueue_free_stack @stack
     # Remove the current fiber from the linked list
     Fiber.fibers.delete(self)
+    scheduler = Thread.current.scheduler
     # monkeypatch: Is this safe with regards to thread lifecycle? Dunno.
     if pool = scheduler.pool
       pool.unregister_fiber(self)

@@ -5,7 +5,7 @@ module NestedScheduler
     WORKER_NAME = "Worker Loop"
 
     property workers
-    property done_channel
+    property done_channel : Channel(Nil)
     property name : String?
     property fibers : NestedScheduler::LinkedList2(Fiber)
     property spawned
@@ -34,26 +34,29 @@ module NestedScheduler
 
     def initialize(io_context : NestedScheduler::IOContext, count = 1, bootstrap = false, @name = nil)
       @io_context = io_context
-      @done_channel = Channel(Nil).new
+      @done_channel = Channel(Nil).new capacity: 1
       @rr_target = 0
       @workers = Array(Thread).new(initial_capacity: count)
+      # FIXME: Separate list..
       @fibers = NestedScheduler::LinkedList2(Fiber).new
       @spawned = Atomic(Int32).new(0)
       @waiting_for_done = Atomic(Int32).new(0)
-      @cancelled = Atomic(Int32).new(0)
+      @canceled = Atomic(Int32).new(0)
 
-      # original init_workers hijack the current thread as part of the
-      # bootstrap process. Only do that when actually bootstrapping.
-      thread = Thread.current
       if bootstrap
+        # original init_workers hijack the current thread as part of the
+        # bootstrap process.
+        thread = Thread.current
+        count -= 1
         scheduler = thread.scheduler
         scheduler.pool = self
-        if scheduler.io_context
-          raise if scheduler.io_context.class != io_context
+        # unfortunately, io happen before init_workers is run, so the
+        # bootstrap scheduler needs a context.
+        if ctx = scheduler.io_context
+          raise "Mismatching io context" if ctx.class != io_context.class
         else
           scheduler.io_context = io_context.new
         end
-        count -= 1
         worker_loop = Fiber.new(name: WORKER_NAME) { thread.scheduler.run_loop }
         @workers << thread
         scheduler.actually_enqueue worker_loop
@@ -84,34 +87,39 @@ module NestedScheduler
 
     def spawn(*, name : String? = nil, &block)
       @spawned.add 1
-      fiber = Fiber.new(name, &block)
+      fiber = Fiber.new(name: name, &block)
+
+      # There is a need to set the thread before calling enqueue
+      # because otherwise it will enqueue on calling pool.
       thread = next_thread!
       if pool = thread.scheduler.pool
         pool.register_fiber(fiber)
+      else
+        raise "BUG"
       end
-      # Until support of embedding a pool in a current pool of
-      # schedulers, this will be guaranteed not to be the same
-      # thread. Also scheduler.enqueue isn't public so would have to
-      # go through Crystal::Scheduler.enqueue, which will enqueue in
-      # the scheduler family of the *current* thread. Which is
-      # absolutely not what we want.
-      thread.scheduler.send_fiber fiber
+      fiber.@current_thread.set(thread)
+
+      puts "spawned #{fiber.name}:"
+   #   puts inspect
+#      puts
+
+      Crystal::Scheduler.enqueue fiber
       fiber
     end
 
     # Cooperatively cancel the current pool. That means the users of
-    # the pool need to actively check if it is cancelled or not.
+    # the pool need to actively check if it is canceled or not.
 
     # TODO: Investigate cancellation contexts, a la
     # https://vorpus.org/blog/timeouts-and-cancellation-for-humans/
     def cancel
       # TBH, not totally certain it actually needs to be atomic..
-      @cancelled.set 1
+      @canceled.set 1
     end
 
-    # Has the pool been cancelled?
-    def cancelled?
-      @cancelled.get > 0
+    # Has the pool been canceled?
+    def canceled?
+      @canceled.get > 0
     end
 
     def register_fiber(fiber)
@@ -119,18 +127,41 @@ module NestedScheduler
     end
 
     def unregister_fiber(fiber)
+      puts "unregistering #{fiber.name}"
+#      puts inspect
+#      puts
       fibers.delete(fiber)
-      old = @spawned.sub(1)
+      previous_running = @spawned.sub(1)
       # If @waiting_for_done == 0, then .nursery block hasn't finished yet,
       # which means there can still be new fibers that are spawned.
-      if old == 1 && @waiting_for_done.get > 0
+
+      if previous_running == 1 && @waiting_for_done.get > 0
+        f = Crystal::Scheduler.current_fiber
+        puts "done #{f}"
         done_channel.send(nil)
       end
     end
 
+    def inspect
+      res = [] of String
+      fibers.unsafe_each do |f|
+        res << f.inspect
+      end
+      <<-EOS
+        Threadpool #{name}, in #{Fiber.current.name}:
+          type:         #{@io_context.class}
+          jobs:         #{@spawned.get}
+          passed_block: #{@waiting_for_done.get}
+          canceled:    #{canceled?}
+        \t#{res.join("\n\t")}
+      EOS
+    end
+
     def wait_until_done
       @waiting_for_done.set(1)
+      puts "wait done #{Crystal::Scheduler.current_fiber}"
       done_channel.receive if @spawned.get > 0
+      puts "done wait"
     end
   end
 end

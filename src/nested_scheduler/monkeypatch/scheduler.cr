@@ -15,7 +15,9 @@ class ::Crystal::Scheduler
     # the first time (it doesn't help that the stacktrace I get don't
     # have line numbers), and as it is called sometime *before*
     # init_workers, I have no choice but to have a fallback :(.
-    return io_context if io_context
+    if context = io_context
+      return context
+    end
     self.io_context = NestedScheduler::LibeventContext.new
     # raise "IO Context Not yet initialized, BUG"
   end
@@ -32,7 +34,9 @@ class ::Crystal::Scheduler
   def self.init_workers
     NestedScheduler::ThreadPool.new(
       NestedScheduler::LibeventContext.new,
-      worker_count, bootstrap: true, name: "Root Pool"
+      worker_count,
+      bootstrap: true,
+      name: "Root Pool"
     )
   end
 

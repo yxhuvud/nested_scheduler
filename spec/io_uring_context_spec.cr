@@ -32,52 +32,52 @@ describe NestedScheduler::IoUringContext do
     run.should be_true
   end
 
-  # it "works with channels" do
-  #   done = Channel(Nil).new(1)
+  it "works with channels" do
+    done = Channel(Nil).new(1)
 
-  #   NestedScheduler::ThreadPool.nursery(1, io_context: NestedScheduler::IoUringContext.new, name: "uring") do |pl|
-  #     pl.spawn do
-  #       done.send nil
-  #     end
-  #   end
-  #   done.receive.should be_nil
-  # end
+    NestedScheduler::ThreadPool.nursery(1, io_context: NestedScheduler::IoUringContext.new, name: "uring") do |pl|
+      pl.spawn do
+        done.send nil
+      end
+    end
+    done.receive.should be_nil
+  end
 
-  # it "#accept" do
-  #   client_done = Channel(Nil).new
-  #   server = Socket.new(Socket::Family::INET, Socket::Type::STREAM, Socket::Protocol::TCP)
-  #   begin
-  #     port = unused_local_port
-  #     server.bind("0.0.0.0", port)
-  #     server.listen
+  it "#accept" do
+    client_done = Channel(Nil).new
+    server = Socket.new(Socket::Family::INET, Socket::Type::STREAM, Socket::Protocol::TCP)
+    begin
+      port = unused_local_port
+      server.bind("0.0.0.0", port)
+      server.listen
 
-  #     spawn do
-  #       TCPSocket.new("127.0.0.1", port).close
-  #     ensure
-  #       client_done.send nil
-  #     end
+      spawn do
+        TCPSocket.new("127.0.0.1", port).close
+      ensure
+        client_done.send nil
+      end
 
-  #     NestedScheduler::ThreadPool.nursery(1, io_context: NestedScheduler::IoUringContext.new, name: "uring") do |pl|
-  #       pl.spawn name: "uring_context" do
-  #         p :no_accept
-  #         # client = server.accept
-  #         # p :accepted
-  #         # begin
-  #         #   client.family.should eq(Socket::Family::INET)
-  #         #   client.type.should eq(Socket::Type::STREAM)
-  #         #   client.protocol.should eq(Socket::Protocol::TCP)
-  #         # ensure
-  #         #   client.close
-  #         # end
-  #         #          p :fiber_done
-  #       end
-  #     end
-  #     p :done
-  #   ensure
-  #     server.close
-  #     client_done.receive
-  #   end
-  # end
+      NestedScheduler::ThreadPool.nursery(1, io_context: NestedScheduler::IoUringContext.new, name: "uring") do |pl|
+        pl.spawn name: "uring_context" do
+          p :no_accept
+          # client = server.accept
+          # p :accepted
+          # begin
+          #   client.family.should eq(Socket::Family::INET)
+          #   client.type.should eq(Socket::Type::STREAM)
+          #   client.protocol.should eq(Socket::Protocol::TCP)
+          # ensure
+          #   client.close
+          # end
+          #          p :fiber_done
+        end
+      end
+      p :done
+    ensure
+      server.close
+      client_done.receive
+    end
+  end
 
   # it "sends messages" do
   #   port = unused_local_port
