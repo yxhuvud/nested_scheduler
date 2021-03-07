@@ -99,7 +99,6 @@ module NestedScheduler
       end
       fiber.@current_thread.set(thread)
 
-      puts "spawned #{fiber.name}:"
    #   puts inspect
 #      puts
 
@@ -127,7 +126,6 @@ module NestedScheduler
     end
 
     def unregister_fiber(fiber)
-      puts "unregistering #{fiber.name}"
 #      puts inspect
 #      puts
       fibers.delete(fiber)
@@ -136,8 +134,6 @@ module NestedScheduler
       # which means there can still be new fibers that are spawned.
 
       if previous_running == 1 && @waiting_for_done.get > 0
-        f = Crystal::Scheduler.current_fiber
-        puts "done #{f}"
         done_channel.send(nil)
       end
     end
@@ -159,9 +155,7 @@ module NestedScheduler
 
     def wait_until_done
       @waiting_for_done.set(1)
-      puts "wait done #{Crystal::Scheduler.current_fiber}"
       done_channel.receive if @spawned.get > 0
-      puts "done wait"
     end
   end
 end

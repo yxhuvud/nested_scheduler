@@ -73,6 +73,7 @@ class ::Crystal::Scheduler
 
   protected def yield : Nil
     io.yield(@current)
+    reschedule
   end
 
   protected def yield(fiber : Fiber) : Nil

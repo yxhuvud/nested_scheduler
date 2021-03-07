@@ -16,7 +16,7 @@ describe NestedScheduler do
       end.to_f.should be < 0.001
     end
 
-    it "starts the pool and waits for it to finish", focus: true do
+    it "starts the pool and waits for it to finish" do
       sleep_time = 0.001
       spent_time = Time.measure do
         NestedScheduler::ThreadPool.nursery name: "t" do |pl|
@@ -89,13 +89,8 @@ describe NestedScheduler do
     it "doesn't break basic spawning1" do
       chan = Channel(Int32).new
 
-      spawn do
-        chan.send 1
-      end
-
-      spawn do
-        chan.send 2
-      end
+      spawn { chan.send 1 }
+      spawn { chan.send 2 }
 
       res = chan.receive + chan.receive
       res.should eq 3
@@ -104,11 +99,8 @@ describe NestedScheduler do
     it "doesn't break basic spawning2" do
       chan = Channel(Int32).new
 
-      spawn do
-        chan.send 1
-      end
-
-      spawn chan.send(2)
+      spawn { chan.send 1 }
+      spawn { chan.send 2 }
 
       res = chan.receive + chan.receive
       res.should eq 3
@@ -119,7 +111,7 @@ describe NestedScheduler do
 
       spawn chan.send(1)
 
-      res = chan.receive + chan.receive
+      res = chan.receive
       res.should eq 1
     end
 
