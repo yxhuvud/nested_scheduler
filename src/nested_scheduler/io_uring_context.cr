@@ -47,20 +47,17 @@ module NestedScheduler
     end
 
     def accept(socket, fiber, timeout)
-      Crystal::System.print_error "hello\n"
       loop do
-        Crystal::System.print_error "wing wait\n"
         # TODO: Timeout..
         # TODO: Error handling if ring is full.
         ring.sqe.accept(socket, user_data: fiber.object_id)
         ring_wait do |cqe|
-          Crystal::System.print_error "success\n"
           if cqe.success?
             return cqe.res
           elsif socket.closed?
             return nil
-          elsif cqe.eagain?
-            next
+            #   elsif cqe.eagain?
+            #     next
           else
             raise Socket::ConnectError.from_errno("accept")
           end

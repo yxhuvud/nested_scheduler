@@ -43,39 +43,27 @@ describe NestedScheduler::IoUringContext do
     done.receive.should be_nil
   end
 
-  it "#accept" do
-    client_done = Channel(Nil).new
-    server = Socket.new(Socket::Family::INET, Socket::Type::STREAM, Socket::Protocol::TCP)
-    begin
+  describe "#accept" do
+    it "can accept" do
       port = unused_local_port
+      server = Socket.new(Socket::Family::INET, Socket::Type::STREAM, Socket::Protocol::TCP)
       server.bind("0.0.0.0", port)
       server.listen
-
-      spawn do
-        TCPSocket.new("127.0.0.1", port).close
-      ensure
-        client_done.send nil
-      end
+      # Does this test that it actually happens or do I need to add
+      # something for that?
+      spawn { TCPSocket.new("127.0.0.1", port).close }
+      client = nil
 
       NestedScheduler::ThreadPool.nursery(1, io_context: NestedScheduler::IoUringContext.new, name: "uring") do |pl|
-        pl.spawn name: "uring_context" do
-          p :no_accept
-          # client = server.accept
-          # p :accepted
-          # begin
-          #   client.family.should eq(Socket::Family::INET)
-          #   client.type.should eq(Socket::Type::STREAM)
-          #   client.protocol.should eq(Socket::Protocol::TCP)
-          # ensure
-          #   client.close
-          # end
-          #          p :fiber_done
-        end
+        pl.spawn { client = server.accept }
       end
-      p :done
-    ensure
+
+      client.not_nil!.family.should eq(Socket::Family::INET)
+      client.not_nil!.type.should eq(Socket::Type::STREAM)
+      client.not_nil!.protocol.should eq(Socket::Protocol::TCP)
+
+      client.not_nil!.close
       server.close
-      client_done.receive
     end
   end
 
