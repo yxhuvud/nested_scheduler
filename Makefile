@@ -1,6 +1,9 @@
-.PHONY : run all
+.PHONY : clean run all
 
-all : run
+all : clean run
+
+clean :
+	rm -rf ./test/*
 
 s :
 	crystal spec -Dpreview_mt --error-trace spec/io_uring_context_spec.cr

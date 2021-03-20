@@ -67,6 +67,23 @@ describe NestedScheduler::IoUringContext do
     end
   end
 
+  describe "write" do
+    it "Can write to stdout" do
+      # nice for error printing ..
+      # kernel 5.8 is not enough for this. 5.11 is, so it was fixed at some point.
+      NestedScheduler::ThreadPool.nursery(1, io_context: NestedScheduler::IoUringContext.new, name: "uring") do |pl|
+        pl.spawn { puts }
+      end
+    end
+
+    it "write" do
+      filename = "test/write1"
+      NestedScheduler::ThreadPool.nursery(1, io_context: NestedScheduler::IoUringContext.new, name: "uring") do |pl|
+        pl.spawn { File.write filename, "hello world" }
+      end
+      File.read("test/write1").should eq "hello world"
+    end
+  end
   # it "sends messages" do
   #   port = unused_local_port
   #   server = Socket.tcp(Socket::Family::INET6)

@@ -111,39 +111,30 @@ module NestedScheduler
     end
 
     def read(io, fiber, slice : Bytes)
+      # Loop due to EAGAIN. EAGAIN happens at least once during
+      # scheduler setup. I'm not totally happy with doing read in a
+      # loop like this but I havn't figured out a better way to make
+      # it work.
       loop do
         ring.sqe.read(io, slice, user_data: fiber.object_id)
         ring_wait do |cqe|
-          if cqe.eagain?
-            Fiber.yield
-            next
-          end
-          if cqe.success?
-            return cqe.res
-          elsif cqe.bad_file_descriptor?
-            raise ::IO::Error.new "File not open for reading"
-          else
-            raise ::IO::Error.new cqe.error_message
+          case cqe
+          when .success?             then return cqe.res
+          when .eagain?              then Fiber.yield
+          when .bad_file_descriptor? then raise ::IO::Error.new "File not open for reading"
+          else                            raise ::IO::Error.new cqe.error_message
           end
         end
       end
     end
 
     def write(io, fiber, slice : Bytes)
-      loop do
-        ring.sqe.write(io, slice, user_data: fiber.object_id)
-        ring_wait do |cqe|
-          if cqe.eagain?
-            Fiber.yield
-            next
-          end
-          if cqe.success?
-            return cqe.res
-          elsif cqe.bad_file_descriptor?
-            raise ::IO::Error.new "File not open for writing"
-          else
-            raise ::IO::Error.new cqe.error_message
-          end
+      ring.sqe.write(io, slice, user_data: fiber.object_id)
+      ring_wait do |cqe|
+        case cqe
+        when .success?             then return cqe.res
+        when .bad_file_descriptor? then raise ::IO::Error.new "File not open for writing"
+        else                            raise ::IO::Error.new cqe.error_message
         end
       end
     end
