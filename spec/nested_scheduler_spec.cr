@@ -17,10 +17,10 @@ describe NestedScheduler do
     end
 
     it "starts the pool and waits for it to finish" do
-      sleep_time = 0.001
+      sleep_time = 0.01
       spent_time = Time.measure do
         NestedScheduler::ThreadPool.nursery name: "t" do |pl|
-          4.times do |i|
+          100.times do |i|
             pl.spawn(name: "fiber#{i}") do
               sleep sleep_time
             end
@@ -29,7 +29,7 @@ describe NestedScheduler do
       end.to_f
 
       spent_time.should be > sleep_time
-      spent_time.should be < 3 * sleep_time
+      spent_time.should be < 5 * sleep_time
     end
 
     it "executes" do
