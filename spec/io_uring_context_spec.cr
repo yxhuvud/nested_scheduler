@@ -18,16 +18,20 @@ def each_ip_family(&block : Socket::Family, String, String ->)
   end
 end
 
+def nursery
+  NestedScheduler::ThreadPool.nursery(1, io_context: NestedScheduler::IoUringContext.new, name: "uring") do |pl|
+    yield pl
+  end
+end
+
 describe NestedScheduler::IoUringContext do
   pending "HANDLES MULTIPLE WORKING THREADS (NOT)"
 
   it "works with enclosing scope" do
     run = false
 
-    NestedScheduler::ThreadPool.nursery(1, io_context: NestedScheduler::IoUringContext.new, name: "uring") do |pl|
-      pl.spawn do
-        run = true
-      end
+    nursery do |pl|
+      pl.spawn { run = true }
     end
     run.should be_true
   end
@@ -35,10 +39,8 @@ describe NestedScheduler::IoUringContext do
   it "works with channels" do
     done = Channel(Nil).new(1)
 
-    NestedScheduler::ThreadPool.nursery(1, io_context: NestedScheduler::IoUringContext.new, name: "uring") do |pl|
-      pl.spawn do
-        done.send nil
-      end
+    nursery do |pl|
+      pl.spawn { done.send nil }
     end
     done.receive.should be_nil
   end
@@ -49,15 +51,15 @@ describe NestedScheduler::IoUringContext do
       server = Socket.new(Socket::Family::INET, Socket::Type::STREAM, Socket::Protocol::TCP)
       server.bind("0.0.0.0", port)
       server.listen
-      # Does this test that it actually happens or do I need to add
-      # something for that?
-      spawn { TCPSocket.new("127.0.0.1", port).close }
-      client = nil
 
-      NestedScheduler::ThreadPool.nursery(1, io_context: NestedScheduler::IoUringContext.new, name: "uring") do |pl|
+      spawn { TCPSocket.new("127.0.0.1", port).close }
+
+      client = nil
+      nursery do |pl|
         pl.spawn { client = server.accept }
       end
 
+      # expectations outside spawn block just to be sure it runs.
       client.not_nil!.family.should eq(Socket::Family::INET)
       client.not_nil!.type.should eq(Socket::Type::STREAM)
       client.not_nil!.protocol.should eq(Socket::Protocol::TCP)
