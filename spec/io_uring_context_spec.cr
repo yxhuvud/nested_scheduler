@@ -36,6 +36,24 @@ describe NestedScheduler::IoUringContext do
     run.should be_true
   end
 
+  describe "write" do
+    it "Can write to stdout" do
+      # nice for error printing ..
+      # kernel 5.8 is not enough for this. 5.11 is, so it was fixed at some point.
+      nursery do |pl|
+        pl.spawn { puts }
+      end
+    end
+
+    it "write" do
+      filename = "test/write1"
+      nursery do |pl|
+        pl.spawn { File.write filename, "hello world" }
+      end
+      File.read("test/write1").should eq "hello world"
+    end
+  end
+
   it "works with channels" do
     done = Channel(Nil).new(1)
 
