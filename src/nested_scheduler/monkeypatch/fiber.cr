@@ -12,6 +12,7 @@ class Fiber
   rescue ex
     # TODO: Push to thread pool.
     Crystal::System.print_error "fiber run: #{name}.\n"
+    Crystal::System.print_error " #{ex.backtrace.join("\n")}.\n"
     if name = @name
       STDERR.print "Unhandled exception in spawn(name: #{name}): "
     else
