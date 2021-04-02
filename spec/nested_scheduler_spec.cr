@@ -11,9 +11,19 @@ describe NestedScheduler do
     end
 
     it "exits immidiately if not spawned" do
+      100.times do
+        NestedScheduler::ThreadPool.nursery { }
+      end
+
+      i = 0
+      Fiber.unsafe_each do |f|
+        i += 1
+      end
+      i.should be < 10
+
       Time.measure do
         NestedScheduler::ThreadPool.nursery { |_| }
-      end.to_f.should be < 0.001
+      end.to_f.should be < 0.0001
     end
 
     it "starts the pool and waits for it to finish" do

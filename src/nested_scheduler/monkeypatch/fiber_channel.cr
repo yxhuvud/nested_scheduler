@@ -1,10 +1,7 @@
-struct Crystal::FiberChannel
-  def send(fiber : Fiber)
-    @worker_in.write_bytes(fiber.object_id)
-  end
+require "crystal/fiber_channel"
 
-  def receive
-    oid = @worker_out.read_bytes(UInt64)
-    Pointer(Fiber).new(oid).as(Fiber)
+struct Crystal::FiberChannel
+  def close
+    @worker_in.close
   end
 end

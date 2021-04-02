@@ -80,4 +80,11 @@ class ::Crystal::Scheduler
     io.yield(@current)
     resume(fiber)
   end
+
+  # Expected to be called from outside and that the scheduler is
+  # waiting to receive fibers through the channel. Assumes there is no
+  # work left.
+  def shutdown
+    @fiber_channel.close
+  end
 end

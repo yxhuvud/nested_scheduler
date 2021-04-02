@@ -171,6 +171,7 @@ module NestedScheduler
       @waiting_for_done.set(1)
       done_channel.receive if @spawned.get > 0
       self.state = State::Done
+      @workers.each &.scheduler.shutdown
     end
   end
 end
