@@ -1,51 +1,62 @@
 require "./spec_helper"
 
-# Mostly of it simply copied from Crystal stdlib Socket specs.
-
-def unused_local_port
-  TCPServer.open("::", 0) do |server|
-    server.local_address.port
-  end
-end
-
-def each_ip_family(&block : Socket::Family, String, String ->)
-  describe "using IPv4" do
-    block.call Socket::Family::INET, "127.0.0.1", "0.0.0.0"
-  end
-
-  describe "using IPv6" do
-    block.call Socket::Family::INET6, "::1", "::"
+private def nursery
+  NestedScheduler::ThreadPool.nursery(1) do |pl|
+    yield pl
   end
 end
 
 describe NestedScheduler::LibeventContext do
-  it "#accept" do
-    client_done = Channel(Nil).new
-    server = Socket.new(Socket::Family::INET, Socket::Type::STREAM, Socket::Protocol::TCP)
+  it "works with enclosing scope" do
+    run = false
 
-    begin
-      port = unused_local_port
-      server.bind("0.0.0.0", port)
-      server.listen
+    nursery &.spawn { run = true }
+    run.should be_true
+  end
 
-      spawn do
-        TCPSocket.new("127.0.0.1", port).close
-      ensure
-        client_done.send nil
-      end
-
-      client = server.accept
-      begin
-        client.family.should eq(Socket::Family::INET)
-        client.type.should eq(Socket::Type::STREAM)
-        client.protocol.should eq(Socket::Protocol::TCP)
-      ensure
-        client.close
-      end
-    ensure
-      server.close
-      client_done.receive
+  describe "write" do
+    it "Can write to stdout" do
+      nursery &.spawn { puts }
     end
+
+    it "write" do
+      filename = "test/write1"
+      nursery &.spawn { File.write filename, "hello world" }
+      File.read("test/write1").should eq "hello world"
+    end
+  end
+
+  it "works with channels" do
+    done = Channel(Nil).new(1)
+
+    nursery &.spawn { done.send nil }
+    done.receive.should be_nil
+
+    done2 = Channel(Nil).new
+    nursery do |pl|
+      pl.spawn { done2.send nil }
+      pl.spawn { done2.receive.should be_nil }
+    end
+  end
+
+  it "#accept" do
+    port = unused_local_port
+    server = Socket.new(Socket::Family::INET, Socket::Type::STREAM, Socket::Protocol::TCP)
+    server.bind("0.0.0.0", port)
+    server.listen
+
+    spawn { TCPSocket.new("127.0.0.1", port).close }
+
+    client = nil
+    nursery &.spawn { client = server.accept }
+
+    # expectations outside spawn block just to be sure it runs.
+    client.not_nil!.family.should eq(Socket::Family::INET)
+    client.not_nil!.type.should eq(Socket::Type::STREAM)
+    client.not_nil!.protocol.should eq(Socket::Protocol::TCP)
+
+    client.not_nil!.close
+    server.close
   end
 
   it "sends messages" do
@@ -54,18 +65,22 @@ describe NestedScheduler::LibeventContext do
     server.bind("::1", port)
     server.listen
     address = Socket::IPAddress.new("::1", port)
-    spawn do
-      client = server.not_nil!.accept
-      client.gets.should eq "foo"
-      client.puts "bar"
-    ensure
-      client.try &.close
-    end
     socket = Socket.tcp(Socket::Family::INET6)
     socket.connect(address)
-    socket.puts "foo"
-    socket.gets.should eq "bar"
+    client = server.not_nil!.accept
+
+    nursery do |pl|
+      pl.spawn do
+        client.gets.should eq "foo"
+        client.puts "bar"
+      end
+      pl.spawn do
+        socket.puts "foo"
+        socket.gets.should eq "bar"
+      end
+    end
   ensure
+    client.try &.close
     socket.try &.close
     server.try &.close
   end

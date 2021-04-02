@@ -1,24 +1,6 @@
 require "./spec_helper"
 
-# Mostly of it simply copied from Crystal stdlib Socket specs.
-
-def unused_local_port
-  TCPServer.open("::", 0) do |server|
-    server.local_address.port
-  end
-end
-
-def each_ip_family(&block : Socket::Family, String, String ->)
-  describe "using IPv4" do
-    block.call Socket::Family::INET, "127.0.0.1", "0.0.0.0"
-  end
-
-  describe "using IPv6" do
-    block.call Socket::Family::INET6, "::1", "::"
-  end
-end
-
-def nursery
+private def nursery
   NestedScheduler::ThreadPool.nursery(1, io_context: NestedScheduler::IoUringContext.new, name: "uring") do |pl|
     yield pl
   end
@@ -29,10 +11,7 @@ describe NestedScheduler::IoUringContext do
 
   it "works with enclosing scope" do
     run = false
-
-    nursery do |pl|
-      pl.spawn { run = true }
-    end
+    nursery &.spawn { run = true }
     run.should be_true
   end
 
@@ -40,31 +19,25 @@ describe NestedScheduler::IoUringContext do
     it "Can write to stdout" do
       # nice for error printing ..
       # kernel 5.8 is not enough for this. 5.11 is, so it was fixed at some point.
-      nursery do |pl|
-        pl.spawn { puts }
-      end
+      nursery &.spawn { puts }
     end
 
     it "write" do
       filename = "test/write1"
-      nursery do |pl|
-        pl.spawn { File.write filename, "hello world" }
-      end
+      nursery &.spawn { File.write filename, "hello world" }
       File.read("test/write1").should eq "hello world"
     end
   end
 
   it "works with channels" do
     done = Channel(Nil).new(1)
-
-    nursery do |pl|
-      pl.spawn { done.send nil }
-    end
+    nursery &.spawn { done.send nil }
     done.receive.should be_nil
 
+    done2 = Channel(Nil).new
     nursery do |pl|
-      pl.spawn { done.send nil }
-      pl.spawn { done.receive.should be_nil }
+      pl.spawn { done2.send nil }
+      pl.spawn { done2.receive.should be_nil }
     end
   end
 
@@ -78,9 +51,7 @@ describe NestedScheduler::IoUringContext do
       spawn { TCPSocket.new("127.0.0.1", port).close }
 
       client = nil
-      nursery do |pl|
-        pl.spawn { client = server.accept }
-      end
+      nursery &.spawn { client = server.accept }
 
       # expectations outside spawn block just to be sure it runs.
       client.not_nil!.family.should eq(Socket::Family::INET)
@@ -119,6 +90,8 @@ describe NestedScheduler::IoUringContext do
     socket.try &.close
     server.try &.close
   end
+
+  pending "socket timeouts"
 
   # each_ip_family do |family, address, unspecified_address|
   #   it "sends and receives messages" do
