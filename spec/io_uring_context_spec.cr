@@ -61,6 +61,11 @@ describe NestedScheduler::IoUringContext do
       pl.spawn { done.send nil }
     end
     done.receive.should be_nil
+
+    nursery do |pl|
+      pl.spawn { done.send nil }
+      pl.spawn { done.receive.should be_nil }
+    end
   end
 
   describe "#accept" do
@@ -89,44 +94,31 @@ describe NestedScheduler::IoUringContext do
     pending "handles timeout"
   end
 
-  describe "write" do
-    it "Can write to stdout" do
-      # nice for error printing ..
-      # kernel 5.8 is not enough for this. 5.11 is, so it was fixed at some point.
-      NestedScheduler::ThreadPool.nursery(1, io_context: NestedScheduler::IoUringContext.new, name: "uring") do |pl|
-        pl.spawn { puts }
-      end
-    end
+  it "sends messages" do
+    port = unused_local_port
+    server = Socket.tcp(Socket::Family::INET6)
+    server.bind("::1", port)
+    server.listen
+    address = Socket::IPAddress.new("::1", port)
+    socket = Socket.tcp(Socket::Family::INET6)
+    socket.connect(address)
+    client = server.not_nil!.accept
 
-    it "write" do
-      filename = "test/write1"
-      NestedScheduler::ThreadPool.nursery(1, io_context: NestedScheduler::IoUringContext.new, name: "uring") do |pl|
-        pl.spawn { File.write filename, "hello world" }
+    nursery do |pl|
+      pl.spawn do
+        client.gets.should eq "foo"
+        client.puts "bar"
       end
-      File.read("test/write1").should eq "hello world"
+      pl.spawn do
+        socket.puts "foo"
+        socket.gets.should eq "bar"
+      end
     end
+  ensure
+    client.try &.close
+    socket.try &.close
+    server.try &.close
   end
-  # it "sends messages" do
-  #   port = unused_local_port
-  #   server = Socket.tcp(Socket::Family::INET6)
-  #   server.bind("::1", port)
-  #   server.listen
-  #   address = Socket::IPAddress.new("::1", port)
-  #   spawn do
-  #     client = server.not_nil!.accept
-  #     client.gets.should eq "foo"
-  #     client.puts "bar"
-  #   ensure
-  #     client.try &.close
-  #   end
-  #   socket = Socket.tcp(Socket::Family::INET6)
-  #   socket.connect(address)
-  #   socket.puts "foo"
-  #   socket.gets.should eq "bar"
-  # ensure
-  #   socket.try &.close
-  #   server.try &.close
-  # end
 
   # each_ip_family do |family, address, unspecified_address|
   #   it "sends and receives messages" do

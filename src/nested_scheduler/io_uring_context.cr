@@ -79,24 +79,34 @@ module NestedScheduler
       end
     end
 
+    # TODO: handle write timeout
     def socket_write(socket, fiber, slice : Bytes, errno_message : String) : Nil
-      s = "socket write\n"
-      LibC.write(STDOUT.fd, s.to_unsafe, s.size.to_u64)
-
-      raise "fda"
-      socket.evented_write(slice, errno_message) do |slice|
-        LibC.send(socket.fd, slice, slice.size, 0)
+      loop do
+        ring.sqe.send(socket, slice, user_data: fiber.object_id)
+        ring_wait do |cqe|
+          case cqe
+          when .success?
+            bytes_written = cqe.res
+            slice += bytes_written
+            return if slice.size == 0
+          when .eagain? then next
+          else               raise ::IO::Error.from_errno(errno_message)
+          end
+        end
       end
     end
 
+    # TODO: handle read timeout
     def recv(socket, fiber, slice : Bytes, errno_message : String)
-      s = "recv\n"
-      LibC.write(STDOUT.fd, s.to_unsafe, s.size.to_u64)
-
-      raise "fda"
-      socket.evented_read(slice, errno_message) do
-        # Do we need .to_unsafe.as(Void*) ?
-        LibC.recv(socket.fd, slice, slice.size, 0).to_i32
+      loop do
+        ring.sqe.recv(socket, slice, user_data: fiber.object_id)
+        ring_wait do |cqe|
+          case cqe
+          when .success? then return cqe.res
+          when .eagain?  then next
+          else                raise ::IO::Error.from_errno(errno_message)
+          end
+        end
       end
     end
 
@@ -128,13 +138,17 @@ module NestedScheduler
       end
     end
 
+    # TODO: add write timeout
     def write(io, fiber, slice : Bytes)
-      ring.sqe.write(io, slice, user_data: fiber.object_id)
-      ring_wait do |cqe|
-        case cqe
-        when .success?             then return cqe.res
-        when .bad_file_descriptor? then raise ::IO::Error.new "File not open for writing"
-        else                            raise ::IO::Error.new cqe.error_message
+      loop do
+        ring.sqe.write(io, slice, user_data: fiber.object_id)
+        ring_wait do |cqe|
+          case cqe
+          when .success?             then return cqe.res
+          when .bad_file_descriptor? then raise ::IO::Error.new "File not open for writing"
+          when .eagain?              then Fiber.yield
+          else                            raise ::IO::Error.new cqe.error_message
+          end
         end
       end
     end
