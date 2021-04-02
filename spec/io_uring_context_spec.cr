@@ -67,6 +67,8 @@ describe NestedScheduler::IoUringContext do
       client.not_nil!.close
       server.close
     end
+
+    pending "handles timeout"
   end
 
   describe "write" do
