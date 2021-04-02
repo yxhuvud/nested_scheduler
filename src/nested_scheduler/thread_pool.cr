@@ -37,7 +37,6 @@ module NestedScheduler
       @done_channel = Channel(Nil).new capacity: 1
       @rr_target = 0
       @workers = Array(Thread).new(initial_capacity: count)
-      # FIXME: Separate list..
       @fibers = NestedScheduler::LinkedList2(Fiber).new
       @spawned = Atomic(Int32).new(0)
       @waiting_for_done = Atomic(Int32).new(0)
@@ -99,9 +98,6 @@ module NestedScheduler
       end
       fiber.@current_thread.set(thread)
 
-   #   puts inspect
-#      puts
-
       Crystal::Scheduler.enqueue fiber
       fiber
     end
@@ -126,13 +122,11 @@ module NestedScheduler
     end
 
     def unregister_fiber(fiber)
-#      puts inspect
-#      puts
       fibers.delete(fiber)
       previous_running = @spawned.sub(1)
+
       # If @waiting_for_done == 0, then .nursery block hasn't finished yet,
       # which means there can still be new fibers that are spawned.
-
       if previous_running == 1 && @waiting_for_done.get > 0
         done_channel.send(nil)
       end
