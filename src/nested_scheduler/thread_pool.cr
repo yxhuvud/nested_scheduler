@@ -2,6 +2,12 @@ require "./linked_list2"
 
 module NestedScheduler
   class ThreadPool
+    enum State
+      Ready
+      Canceled
+      Done
+    end
+
     WORKER_NAME = "Worker Loop"
 
     property workers
@@ -40,7 +46,7 @@ module NestedScheduler
       @fibers = NestedScheduler::LinkedList2(Fiber).new
       @spawned = Atomic(Int32).new(0)
       @waiting_for_done = Atomic(Int32).new(0)
-      @canceled = Atomic(Int32).new(0)
+      @state = Atomic(State).new(State::Ready)
 
       if bootstrap
         # original init_workers hijack the current thread as part of the
@@ -109,12 +115,26 @@ module NestedScheduler
     # https://vorpus.org/blog/timeouts-and-cancellation-for-humans/
     def cancel
       # TBH, not totally certain it actually needs to be atomic..
-      @canceled.set 1
+      return if state.done?
+
+      self.state = State::Canceled
     end
 
     # Has the pool been canceled?
     def canceled?
-      @canceled.get > 0
+      state.canceled?
+    end
+
+    def done?
+      state.done?
+    end
+
+    def state
+      @state.get
+    end
+
+    private def state=(new_state : State)
+      @state.set new_state
     end
 
     def register_fiber(fiber)
@@ -150,6 +170,7 @@ module NestedScheduler
     def wait_until_done
       @waiting_for_done.set(1)
       done_channel.receive if @spawned.get > 0
+      self.state = State::Done
     end
   end
 end
