@@ -34,7 +34,7 @@ class Socket < IO
     sockaddr = Pointer(LibC::SockaddrStorage).malloc.as(LibC::Sockaddr*)
     addrlen = LibC::SocklenT.new(sizeof(LibC::SockaddrStorage))
 
-    bytes_read = io.recvfrom(self, fiber, slice, sockaddr, addrlen)
+    bytes_read = io.recvfrom(self, fiber, slice, sockaddr, addrlen, "Error receiving datagram")
 
     {bytes_read, sockaddr, addrlen}
   end

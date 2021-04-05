@@ -70,8 +70,8 @@ module NestedScheduler
       end
     end
 
-    def recvfrom(socket, _fiber, slice, sockaddr, addrlen)
-      socket.evented_read(slice, "Error receiving datagram") do |slice|
+    def recvfrom(socket, _fiber, slice, sockaddr, addrlen, errno_message)
+      socket.evented_read(slice, errno_message) do |slice|
         LibC.recvfrom(socket.fd, slice, slice.size, 0, sockaddr, pointerof(addrlen))
       end
     end

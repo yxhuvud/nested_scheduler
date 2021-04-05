@@ -93,44 +93,54 @@ describe NestedScheduler::IoUringContext do
 
   pending "socket timeouts"
 
-  # each_ip_family do |family, address, unspecified_address|
-  #   it "sends and receives messages" do
-  #     port = unused_local_port
+  each_ip_family do |family, address, unspecified_address|
+    it "sends and receives messages" do
+      port = unused_local_port
 
-  #     server = UDPSocket.new(family)
-  #     server.bind(address, port)
-  #     server.local_address.should eq(Socket::IPAddress.new(address, port))
+      server = UDPSocket.new(family)
+      server.bind(address, port)
+      server.local_address.should eq(Socket::IPAddress.new(address, port))
 
-  #     client = UDPSocket.new(family)
-  #     client.bind(address, 0)
+      client = UDPSocket.new(family)
+      client.bind(address, 0)
 
-  #     client.send "message", to: server.local_address
-  #     server.receive.should eq({"message", client.local_address})
+      nursery do |pl|
+        pl.spawn { client.send "message", to: server.local_address }
+        pl.spawn { server.receive.should eq({"message", client.local_address}) }
+      end
 
-  #     client.connect(address, port)
-  #     client.local_address.family.should eq(family)
-  #     client.local_address.address.should eq(address)
-  #     client.remote_address.should eq(Socket::IPAddress.new(address, port))
+      client.connect(address, port)
+      client.local_address.family.should eq(family)
+      client.local_address.address.should eq(address)
+      client.remote_address.should eq(Socket::IPAddress.new(address, port))
 
-  #     client.send "message"
-  #     server.receive.should eq({"message", client.local_address})
+      nursery do |pl|
+        pl.spawn { client.send "message" }
+        pl.spawn { server.receive.should eq({"message", client.local_address}) }
+      end
 
-  #     client.send("laus deo semper")
+      buffer = uninitialized UInt8[256]
 
-  #     buffer = uninitialized UInt8[256]
+      nursery do |pl|
+        pl.spawn { client.send("laus deo semper") }
+        pl.spawn do
+          bytes_read, client_addr = server.receive(buffer.to_slice)
+          message = String.new(buffer.to_slice[0, bytes_read])
+          message.should eq("laus deo semper")
+        end
+      end
 
-  #     bytes_read, client_addr = server.receive(buffer.to_slice)
-  #     message = String.new(buffer.to_slice[0, bytes_read])
-  #     message.should eq("laus deo semper")
+      nursery do |pl|
+        pl.spawn { client.send("laus deo semper") }
+        pl.spawn do
+          bytes_read, client_addr = server.receive(buffer.to_slice[0, 4])
+          message = String.new(buffer.to_slice[0, bytes_read])
+          message.should eq("laus")
+        end
+      end
 
-  #     client.send("laus deo semper")
-
-  #     bytes_read, client_addr = server.receive(buffer.to_slice[0, 4])
-  #     message = String.new(buffer.to_slice[0, bytes_read])
-  #     message.should eq("laus")
-
-  #     client.close
-  #     server.close
-  #   end
-  # end
+      client.close
+      server.close
+    end
+  end
 end

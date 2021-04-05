@@ -67,15 +67,34 @@ module NestedScheduler
 
     def send(socket, fiber, message, to addr : Socket::Address) : Int32
       slice = message.to_slice
-      bytes_sent = LibC.sendto(socket.fd, slice.to_unsafe.as(Void*), slice.size, 0, addr, addr.size)
-      raise Socket::Error.from_errno("Error sending datagram to #{addr}") if bytes_sent == -1
-      # to_i32 is fine because string/slice sizes are an Int32
-      bytes_sent.to_i32
+
+      # No sendto in uring, falling back to sendmsg.
+      vec = LibC::IOVec.new(base: slice.to_unsafe, len: slice.size)
+      hdr = LibC::MsgHeader.new(
+        name: addr.to_unsafe.as(LibC::SockaddrStorage*),
+        namelen: LibC::SocklenT.new(sizeof(LibC::SockaddrStorage)),
+        iov: pointerof(vec),
+        iovlen: 1
+      )
+
+      ring.sqe.sendmsg(socket, pointerof(hdr), user_data: fiber.object_id)
+      ring_wait do |cqe|
+        if cqe.success?
+          cqe.res.to_i32
+        else
+          raise ::IO::Error.from_errno("Error sending datagram to #{addr}", errno: cqe.cqe_errno)
+        end
+      end
     end
 
     def send(socket, fiber, slice : Bytes, errno_message : String) : Int32
-      socket.evented_send(slice, errno_message) do |slice|
-        LibC.send(socket.fd, slice, slice.size, 0)
+      ring.sqe.send(socket, slice, user_data: fiber.object_id)
+      ring_wait do |cqe|
+        if cqe.success?
+          return cqe.res
+        else
+          raise ::IO::Error.from_errno(errno_message, errno: cqe.cqe_errno)
+        end
       end
     end
 
@@ -90,7 +109,7 @@ module NestedScheduler
             slice += bytes_written
             return if slice.size == 0
           when .eagain? then next
-          else               raise ::IO::Error.from_errno(errno_message)
+          else               raise ::IO::Error.from_errno(errno_message, errno: cqe.cqe_errno)
           end
         end
       end
@@ -104,22 +123,36 @@ module NestedScheduler
           case cqe
           when .success? then return cqe.res
           when .eagain?  then next
-          else                raise ::IO::Error.from_errno(errno_message)
+          else                raise ::IO::Error.from_errno(errno_message, errno: cqe.cqe_errno)
           end
         end
       end
     end
 
-    def recvfrom(socket, fiber, slice, sockaddr, addrlen)
-      s = "recvfrom\n"
-      LibC.write(STDOUT.fd, s.to_unsafe, s.size.to_u64)
-
-      raise "fda"
-      socket.evented_read(slice, "Error receiving datagram") do |slice|
-        LibC.recvfrom(socket.fd, slice, slice.size, 0, sockaddr, pointerof(addrlen))
+    # todo timeout.., errmess
+    def recvfrom(socket, fiber, slice, sockaddr, addrlen, errno_message : String)
+      # No recvfrom in uring, falling back to recvmsg.
+      vec = LibC::IOVec.new(base: slice.to_unsafe, len: slice.size)
+      hdr = LibC::MsgHeader.new(
+        name: sockaddr.as(LibC::SockaddrStorage*),
+        namelen: addrlen,
+        iov: pointerof(vec),
+        iovlen: 1
+      )
+      # Fixme errono
+      loop do
+        ring.sqe.recvmsg(socket, pointerof(hdr), user_data: fiber.object_id)
+        ring_wait do |cqe|
+          case cqe
+          when .success? then return cqe.res
+          when .eagain?  then next
+          else                raise ::IO::Error.from_errno(message: errno_message, errno: cqe.cqe_errno)
+          end
+        end
       end
     end
 
+    # TODO: handle read timeout
     def read(io, fiber, slice : Bytes)
       # Loop due to EAGAIN. EAGAIN happens at least once during
       # scheduler setup. I'm not totally happy with doing read in a
@@ -145,9 +178,9 @@ module NestedScheduler
         ring_wait do |cqe|
           case cqe
           when .success?             then return cqe.res
-          when .bad_file_descriptor? then raise ::IO::Error.new "File not open for writing"
+          when .bad_file_descriptor? then raise ::IO::Error.from_errno(message: "File not open for writing", errno: cqe.cqe_errno)
           when .eagain?              then Fiber.yield
-          else                            raise ::IO::Error.new cqe.error_message
+          else                            raise ::IO::Error.from_errno(errno: cqe.cqe_errno)
           end
         end
       end
@@ -172,10 +205,9 @@ module NestedScheduler
       ring.sqe.close(fd, user_data: fiber.object_id)
       ring_wait do |cqe|
         return if cqe.success?
-        # Fixme: verify?
-        return if -cqe.res == Errno::EINTR || -cqe.res == Errno::EINPROGRESS
+        return if cqe.cqe_errno.eintr? || cqe.cqe_errno.einprogress?
 
-        raise ::IO::Error.from_errno("Error closing file")
+        raise ::IO::Error.from_errno("Error closing file", cqe.cqe_errno)
       end
     end
 
