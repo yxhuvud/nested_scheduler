@@ -33,6 +33,8 @@ All usage of Nested Scheduler is assuming the program is compiled with
 is very much core to Crystal, so beware that this can be quite fragile
 if the crystal implementation changes.
 
+### Basics
+
 The basics of the nested scheduler is the
 `NestedScheduler::ThreadPool.nursery` block. The point of that is to
 spawn fibers from the yielded pool.
