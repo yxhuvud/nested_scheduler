@@ -65,6 +65,7 @@ itself, which means that PROGRAMS THAT SPAWN FIBERS WILL NOT EXIT
 UNTIL ALL FIBERS HAVE STOPPED RUNNING. This is in general a very good
 thing, but it may be disruptive for programs not built assuming that.
 
+### Threads
 Nested Scheduler defaults to spawning a single thread to process
 fibers, but it supports spawning more. To create a nursery with
 multiple worker threads, instantiate it like
@@ -80,6 +81,30 @@ end
 The root nursery (that replaces the builtin scheduler at upstart) is
 instantiated with 4 threads, just as the original.
 
+### Cancelation
+
+Currently only cooperative cancellation is supported. Example:
+
+```crystal
+  count = 0
+  NestedScheduler::ThreadPool.nursery do |pl|
+    pl.spawn do
+      sleep 0.01
+      pl.cancel
+    end
+    pl.spawn do
+      loop do
+        break if pl.canceled?
+        count += 1
+        sleep 0.001
+      end
+    end
+  end
+  # count will be > 7 when this point is reached.
+```
+
+## Future work
+
 Eventually it would be nice to have more stream lined ways of creating
 nurseries, but as long as creating one always will create at least one
 dedicated new thread to process the work, it hasn't been necessary. It
@@ -87,11 +112,11 @@ will be more relevant once there are cheaper ways to create nurseries
 that work gracefully within the current thread pool instead of having
 to create at least one new thread for every nursery.
 
-Oh, and the uring scheduler is very much experimental. Expect things
-that are broken. Given that it has the potential to allow asynchronous
-file IO, it is very much something that is desireable in the long run
-though. Any help improving it is welcome but don't expect it to work
-(yet) :).
+Oh, and the uring scheduler is very much experimental and not
+currently documented. Expect things to be broken. Given that it has
+the potential to allow asynchronous file IO, it is very much something
+that is desireable in the long run though. Any help improving it is
+welcome but don't expect it to work well (yet) :).
 
 ## Development
 
