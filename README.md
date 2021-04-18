@@ -83,6 +83,11 @@ end
 The root nursery (that replaces the builtin scheduler at upstart) is
 instantiated with 4 threads, just as the original.
 
+Since `nested_scheduler` will create a pool of new threads, it is
+possible to use it to spawn many threads and use it as a poor mans
+replacement for asynchronous file IO. Doing blocking file IO in the
+pool while continuing execution in the root pool is totally possible.
+
 ### Cancelation
 
 Currently only cooperative cancellation is supported. Example:
