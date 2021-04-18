@@ -33,6 +33,10 @@ class Socket < IO
     # we will see if these will have to be moved into the context
     sockaddr = Pointer(LibC::SockaddrStorage).malloc.as(LibC::Sockaddr*)
     addrlen = LibC::SocklenT.new(sizeof(LibC::SockaddrStorage))
+    # initialize sockaddr with the initialized family of the socket
+    copy = sockaddr.value
+    copy.sa_family = family
+    sockaddr.value = copy
 
     bytes_read = io.recvfrom(self, fiber, slice, sockaddr, addrlen, "Error receiving datagram")
 
