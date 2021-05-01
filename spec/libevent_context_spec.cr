@@ -39,6 +39,22 @@ describe NestedScheduler::LibeventContext do
     end
   end
 
+  it "#sleep" do
+    sleep_time = 0.01
+    spent_time = Time.measure do
+      nursery do |pl|
+        100.times do |i|
+          pl.spawn do
+            sleep sleep_time
+          end
+        end
+      end
+    end.to_f
+
+    spent_time.should be > sleep_time
+    spent_time.should be < 5 * sleep_time
+  end
+
   it "#accept" do
     port = unused_local_port
     server = Socket.new(Socket::Family::INET, Socket::Type::STREAM, Socket::Protocol::TCP)
