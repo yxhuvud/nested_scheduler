@@ -96,12 +96,18 @@ module NestedScheduler
       end
     end
 
-    def sleep(fiber, time) : Nil
+    def sleep(scheduler, fiber, time) : Nil
       fiber.resume_event.add(time)
+      scheduler.actually_reschedule
     end
 
-    def yield(fiber)
-      sleep(fiber, 0.seconds)
+    def yield(scheduler, fiber)
+      sleep(scheduler, fiber, 0.seconds)
+    end
+
+    def yield(scheduler, fiber, to other)
+      fiber.resume_event.add(0.seconds)
+      resume(other)
     end
 
     def prepare_close(file)

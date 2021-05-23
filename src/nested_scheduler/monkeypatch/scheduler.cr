@@ -31,6 +31,11 @@ class ::Crystal::Scheduler
     enqueue fiber
   end
 
+  # doesn't seem to be possible to monkey patch visibility status.
+  def actually_reschedule : Nil
+    reschedule
+  end
+
   def self.init_workers
     NestedScheduler::ThreadPool.new(
       NestedScheduler::LibeventContext.new,
@@ -67,18 +72,15 @@ class ::Crystal::Scheduler
   end
 
   protected def sleep(time : Time::Span) : Nil
-    io.sleep(@current, time)
-    reschedule
+    io.sleep(self, @current, time)
   end
 
   protected def yield : Nil
-    io.yield(@current)
-    reschedule
+    io.yield(self, @current)
   end
 
   protected def yield(fiber : Fiber) : Nil
-    io.yield(@current)
-    resume(fiber)
+    io.yield(self, @current, to: fiber)
   end
 
   # Expected to be called from outside and that the scheduler is

@@ -41,6 +41,22 @@ describe NestedScheduler::IoUringContext do
     end
   end
 
+  it "#sleep" do
+    sleep_time = 0.1
+    spent_time = Time.measure do
+      nursery do |pl|
+        5.times do |i|
+          pl.spawn do
+            sleep sleep_time
+          end
+        end
+      end
+    end.to_f
+
+    spent_time.should be > sleep_time
+    spent_time.should be < 5 * sleep_time
+  end
+
   describe "#accept" do
     it "can accept" do
       port = unused_local_port

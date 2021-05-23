@@ -162,8 +162,8 @@ module NestedScheduler
           case cqe
           when .success?             then return cqe.res
           when .eagain?              then Fiber.yield
-          when .bad_file_descriptor? then raise ::IO::Error.new "File not open for reading"
-          else                            raise ::IO::Error.new cqe.error_message
+          when .bad_file_descriptor? then raise ::IO::Error.from_errno(message: "File not open for reading", errno: cqe.cqe_errno)
+          else                            raise ::IO::Error.from_errno(errno: cqe.cqe_errno)
           end
         end
       end
@@ -184,15 +184,30 @@ module NestedScheduler
       end
     end
 
-    def sleep(fiber, time) : Nil
-      Crystal::System.print_error "sleep\n"
-      exit
-      fiber.resume_event.add(time)
+    def sleep(scheduler, fiber, time) : Nil
+      ts = LibC::Timespec.new(tv_sec: 0, tv_nsec: 50_000)
+
+      timespec = LibC::Timespec.new(
+        tv_sec: LibC::TimeT.new(time.to_i),
+        tv_nsec: time.nanoseconds
+      )
+      ring.sqe.timeout(pointerof(timespec), user_data: fiber.object_id)
+      ring_wait(scheduler: scheduler) { }
     end
 
-    def yield(fiber)
+    def yield(scheduler, fiber)
       ring.sqe.nop(user_data: fiber.object_id)
-      ring_wait { }
+      ring_wait(scheduler: scheduler) { }
+      # So why does the event loop deadlock if reschedule doesn't
+      # happen? Does it mean anything else is not executed if passing
+      # this point?
+      scheduler.actually_reschedule
+    end
+
+    def yield(scheduler, fiber, to other)
+      ring.sqe.nop(user_data: fiber.object_id)
+      scheduler.resume(other)
+      ring.wait { }
     end
 
     def prepare_close(_file)
@@ -247,8 +262,13 @@ module NestedScheduler
       end
     end
 
-    private def ring_wait
-      Crystal::Scheduler.reschedule
+    private def ring_wait(scheduler = nil)
+      if scheduler
+        scheduler.actually_reschedule
+      else
+        Crystal::Scheduler.reschedule
+      end
+
       # Assumes reschedule make certain this actually get a cqe
       # without having to wait. Depends on user_data being a pointer
       # to the current Fiber.
