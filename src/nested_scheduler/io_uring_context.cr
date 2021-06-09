@@ -160,8 +160,8 @@ module NestedScheduler
         ring.sqe.read(io, slice, user_data: fiber.object_id)
         ring_wait do |cqe|
           case cqe
-          when .success?             then return cqe.res
-          when .eagain?              then Fiber.yield
+          when .success? then return cqe.res
+          when .eagain?
           when .bad_file_descriptor? then raise ::IO::Error.from_errno(message: "File not open for reading", errno: cqe.cqe_errno)
           else                            raise ::IO::Error.from_errno(errno: cqe.cqe_errno)
           end
@@ -175,9 +175,9 @@ module NestedScheduler
         ring.sqe.write(io, slice, user_data: fiber.object_id)
         ring_wait do |cqe|
           case cqe
-          when .success?             then return cqe.res
+          when .success? then return cqe.res
+          when .eagain?
           when .bad_file_descriptor? then raise ::IO::Error.from_errno(message: "File not open for writing", errno: cqe.cqe_errno)
-          when .eagain?              then Fiber.yield
           else                            raise ::IO::Error.from_errno(errno: cqe.cqe_errno)
           end
         end
@@ -198,16 +198,14 @@ module NestedScheduler
     def yield(scheduler, fiber)
       ring.sqe.nop(user_data: fiber.object_id)
       ring_wait(scheduler: scheduler) { }
-      # So why does the event loop deadlock if reschedule doesn't
-      # happen? Does it mean anything else is not executed if passing
-      # this point?
-      scheduler.actually_reschedule
     end
 
     def yield(scheduler, fiber, to other)
       ring.sqe.nop(user_data: fiber.object_id)
+      # Normally reschedule submits but that is needed here as we
+      # don't pass through reschedule.
+      ring.submit
       scheduler.resume(other)
-      ring.wait { }
     end
 
     def prepare_close(_file)
