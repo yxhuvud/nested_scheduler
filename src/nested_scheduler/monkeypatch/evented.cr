@@ -1,12 +1,26 @@
 # Ideally, this class should not need to be monkeypatched but simply used by the libevent_context,
 module IO::Evented
-  private def add_read_event(timeout = @read_timeout) : Nil
-    io, fiber = context
-    io.add_read_event(self, fiber, timeout)
+  setter write_timed_out
+  setter read_timed_out
+
+  def wait_readable(timeout = @read_timeout, *, raise_if_closed = true) : Nil
+    io, scheduler = context
+
+    io.wait_readable(self, scheduler, timeout) do
+      yield
+    end
+
+    check_open if raise_if_closed
   end
 
-  private def add_write_event(timeout = @write_timeout) : Nil
-    io, fiber = context
-    io.add_write_event(self, fiber, timeout)
+  # :nodoc:
+  def wait_writable(timeout = @write_timeout) : Nil
+    io, scheduler = context
+
+    io.wait_writable(self, scheduler, timeout) do
+      yield
+    end
+
+    check_open
   end
 end

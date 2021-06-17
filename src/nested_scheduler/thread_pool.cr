@@ -19,14 +19,15 @@ module NestedScheduler
     property io_context : ::NestedScheduler::IOContext
 
     def self.nursery(thread_count = 1, name = "Child pool", io_context = nil)
+      if thread_count < 1
+        raise ArgumentError.new "No support for nested thread pools in same thread yet"
+      end
+
       unless io_context
         if p = Thread.current.scheduler.pool
           io_context ||= p.io_context
         end
         raise "Pool missing IO Context" unless io_context
-      end
-      if thread_count < 1
-        raise ArgumentError.new "No support for nested thread pools in same thread yet"
       end
       pool = new(io_context, thread_count, name: name)
       begin
@@ -88,6 +89,11 @@ module NestedScheduler
     def next_thread!
       @rr_target &+= 1
       workers[@rr_target % workers.size]
+    end
+
+    # Allows spawning a helper fiber that will be ended automatically
+    # on pool exit.
+    def spawn_helper(name : String? = nil, &block)
     end
 
     def spawn(*, name : String? = nil, same_thread = false, &block)

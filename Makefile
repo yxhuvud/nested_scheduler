@@ -12,5 +12,5 @@ le :
 
 
 run  :
-	CRYSTAL_LOAD_DWARF=1 crystal spec -Dpreview_mt --error-trace
+	CRYSTAL_LOAD_DWARF=1 crystal spec -Dpreview_mt --error-trace --stats 
 
