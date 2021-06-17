@@ -80,7 +80,8 @@ class ::Crystal::Scheduler
   end
 
   protected def yield(fiber : Fiber) : Nil
-    io.yield(self, @current, to: fiber)
+    io.yield(@current, to: fiber)
+    resume(other)
   end
 
   # Expected to be called from outside and that the scheduler is

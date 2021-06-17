@@ -107,7 +107,6 @@ module NestedScheduler
 
     def yield(scheduler, fiber, to other)
       fiber.resume_event.add(0.seconds)
-      resume(other)
     end
 
     def prepare_close(file)

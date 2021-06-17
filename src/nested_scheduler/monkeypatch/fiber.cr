@@ -2,6 +2,10 @@ require "fiber"
 require "./scheduler"
 
 class Fiber
+  # A helper fiber is a fiber which don't block thread pool exit.
+  property helper_fiber : Bool
+  @helper_fiber = false
+
   # For thread pool fiber list
   property next2 : Fiber?
   property previous2 : Fiber?

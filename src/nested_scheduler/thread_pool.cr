@@ -90,13 +90,23 @@ module NestedScheduler
       workers[@rr_target % workers.size]
     end
 
-    def spawn(*, name : String? = nil, &block)
+    def spawn(*, name : String? = nil, same_thread = false, &block)
       @spawned.add 1
       fiber = Fiber.new(name: name, &block)
 
-      # There is a need to set the thread before calling enqueue
-      # because otherwise it will enqueue on calling pool.
-      thread = next_thread!
+      thread =
+        if same_thread
+          unless Thread.current.scheduler.pool == self
+            raise "It is not possible to spawn into a different thread pool but keeping the same thread."
+          else
+            Thread.current
+          end
+        else
+          # There is a need to set the thread before calling enqueue
+          # because otherwise it will enqueue on calling pool.
+          next_thread!
+        end
+
       if pool = thread.scheduler.pool
         pool.register_fiber(fiber)
       else
@@ -143,6 +153,8 @@ module NestedScheduler
 
     def unregister_fiber(fiber)
       fibers.delete(fiber)
+      return if fiber.helper_fiber
+
       previous_running = @spawned.sub(1)
 
       # If @waiting_for_done == 0, then .nursery block hasn't finished yet,
@@ -173,5 +185,18 @@ module NestedScheduler
       self.state = State::Done
       @workers.each &.scheduler.shutdown
     end
+  end
+end
+
+# FIXME: move to better place.
+def spawn(*, name : String? = nil, same_thread = false, &block)
+  if pool = Thread.current.scheduler.pool
+    pool.spawn(name: name, same_thread: same_thread, &block)
+  else
+    # Fiber Clean Loop and Signal Loop are set up before any pool is
+    # initiated. Handle these separately.
+    fiber = Fiber.new(name, &block)
+    fiber.helper_fiber = true
+    Crystal::Scheduler.enqueue fiber
   end
 end
