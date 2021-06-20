@@ -40,7 +40,6 @@ module NestedScheduler
     def wait_writable(io, scheduler, timeout)
       # TODO: Actually do timeouts..
       ring.sqe.poll_add(io, :POLLOUT, user_data: userdata(scheduler))
-      p io.closed?.to_s
       ring_wait do |cqe|
         yield if cqe.canceled?
         Crystal::System.print_error "\nsay wat\n"
