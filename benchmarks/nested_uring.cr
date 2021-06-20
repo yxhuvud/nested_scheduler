@@ -1,7 +1,7 @@
 require "../src/nested_scheduler"
 require "http/server"
 
-NestedScheduler::ThreadPool.nursery(16, io_context: NestedScheduler::IoUringContext.new) do |pl|
+NestedScheduler::ThreadPool.nursery(4, io_context: NestedScheduler::IoUringContext.new) do |pl|
   pl.spawn do
     server = HTTP::Server.new do |context|
       context.response.content_type = "text/plain"
