@@ -57,6 +57,25 @@ module NestedScheduler
       end
     end
 
+    def connect(socket, _scheduler, addr, timeout)
+      timeout = timeout.seconds unless timeout.is_a? Time::Span | Nil
+      loop do
+        if LibC.connect(socket.fd, addr, addr.size) == 0
+          return
+        end
+        case Errno.value
+        when Errno::EISCONN
+          return
+        when Errno::EINPROGRESS, Errno::EALREADY
+          wait_writable(socket, _scheduler, timeout: timeout) do
+            return yield ::IO::TimeoutError.new("connect timed out")
+          end
+        else
+          return yield Socket::ConnectError.from_errno("connect")
+        end
+      end
+    end
+
     def send(socket, _scheduler, message, to addr : Socket::Address) : Int32
       slice = message.to_slice
       bytes_sent = LibC.sendto(socket.fd, slice.to_unsafe.as(Void*), slice.size, 0, addr, addr.size)

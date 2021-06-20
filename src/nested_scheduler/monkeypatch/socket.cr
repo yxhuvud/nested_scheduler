@@ -43,11 +43,13 @@ class Socket < IO
     {bytes_read, sockaddr, addrlen}
   end
 
-  # candidates:
-  # require DNS:
-  # def connect(host : String, port : Int, connect_timeout = nil)
+  def connect(addr, timeout = nil)
+    io, scheduler = context
 
-  # def connect(addr, timeout = nil)
+    io.connect(self, scheduler, addr, timeout) do |error|
+      yield error
+    end
+  end
 
   # private def shutdown(how) # doesnt
   # private def unbuffered_close # for line that do libc.close x_x

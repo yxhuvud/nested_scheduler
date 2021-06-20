@@ -74,6 +74,20 @@ module NestedScheduler
       # end
     end
 
+    def connect(socket, scheduler, addr, timeout)
+      timeout = timeout.seconds unless timeout.is_a? Time::Span | Nil
+      ring.sqe.connect(socket, addr, user_data: userdata(scheduler))
+      ring_wait do |cqe|
+        case cqe.cqe_errno
+        when Errno::NONE, Errno::EISCONN
+          # when Errno::EINPROGRESS, Errno::EALREADY
+          #   raise "FIXME"
+        else
+          return yield Socket::ConnectError.from_errno("connect", errno: cqe.cqe_errno)
+        end
+      end
+    end
+
     def send(socket, scheduler, message, to addr : Socket::Address) : Int32
       slice = message.to_slice
 

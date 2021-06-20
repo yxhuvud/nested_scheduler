@@ -78,11 +78,11 @@ describe NestedScheduler::IoUringContext do
       server.close
     end
 
-    it "can wait for acceptance", focus: true do
+    it "can wait for acceptance" do
       port = unused_local_port
       server = Socket.new(Socket::Family::INET, Socket::Type::STREAM, Socket::Protocol::TCP)
       server.bind("0.0.0.0", port)
-            server.blocking = true
+      server.blocking = true
       server.listen
 
 
