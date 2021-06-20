@@ -42,36 +42,37 @@ module NestedScheduler
       ring.sqe.poll_add(io, :POLLOUT, user_data: userdata(scheduler))
       ring_wait do |cqe|
         yield if cqe.canceled?
-        Crystal::System.print_error "\nsay wat\n"
+
         raise ::IO::Error.from_errno("poll", cqe.cqe_errno) unless cqe.success?
       end
     end
 
     def accept(socket, scheduler, timeout)
       # TODO: Timeout..
-      #  loop do
-      ring.sqe.accept(socket, user_data: userdata(scheduler))
-      ring_wait do |cqe|
-        if cqe.success?
-          return cqe.res
-        elsif socket.closed?
-          return nil
-          #    elsif cqe.eagain? # must be only non-escaping branch
-        else
-          raise Socket::ConnectError.from_errno("accept", cqe.cqe_errno)
-          #  exit
+    #  loop do
+        ring.sqe.accept(socket, user_data: userdata(scheduler))
+        ring_wait do |cqe|
+          if cqe.success?
+            return cqe.res
+          elsif socket.closed?
+            return nil
+          elsif cqe.eagain? # must be only non-escaping branch
+          else
+            raise Socket::ConnectError.from_errno("accept", cqe.cqe_errno)
+            #  exit
+          end
         end
-      end
-      # Crystal::System.print_error "t"
-      # # Nonblocking sockets return EAGAIN if there isn't an
-      # # active connection attempt. To detect that wait_readable
-      # # is needed but that needs to happen outside ring_wait due
-      # # to the cqe needs to be marked as seen.
-      # Crystal::System.print_error socket.blocking.to_s
-      # wait_readable(socket, scheduler, timeout) do
-      #   raise Socket::TimeoutError.new("Accept timed out")
-      # end
-      # end
+        # Crystal::System.print_error "t"
+        # # Nonblocking sockets return EAGAIN if there isn't an
+        # # active connection attempt. To detect that wait_readable
+        # # is needed but that needs to happen outside ring_wait due
+        # # to the cqe needs to be marked as seen.
+        # Crystal::System.print_error socket.blocking.to_s
+       # Crystal::System.print_error "\n" + socket.fd.to_s + "\n"
+        # wait_readable(socket, scheduler, timeout) do
+        #   raise Socket::TimeoutError.new("Accept timed out")
+        # end
+     # end
     end
 
     def connect(socket, scheduler, addr, timeout)
@@ -81,7 +82,8 @@ module NestedScheduler
         case cqe.cqe_errno
         when Errno::NONE, Errno::EISCONN
           # when Errno::EINPROGRESS, Errno::EALREADY
-          #   raise "FIXME"
+        #   raise "FIXME"
+          # Needed?
         else
           return yield Socket::ConnectError.from_errno("connect", errno: cqe.cqe_errno)
         end

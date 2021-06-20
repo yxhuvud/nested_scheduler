@@ -85,12 +85,10 @@ describe NestedScheduler::IoUringContext do
       server.blocking = true
       server.listen
 
-
       client = nil
       nursery do |n|
         n.spawn { client = server.accept }
         n.spawn do
-          p :a
           sleep 0.001
           TCPSocket.new("127.0.0.1", port).close
         end
@@ -103,10 +101,9 @@ describe NestedScheduler::IoUringContext do
 
       client.not_nil!.close
       server.close
-      p :hi
     end
 
-  #   pending "handles timeout"
+    #   pending "handles timeout"
   end
 
   it "sends messages" do
