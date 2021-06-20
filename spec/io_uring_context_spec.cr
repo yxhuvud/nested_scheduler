@@ -101,6 +101,30 @@ describe NestedScheduler::IoUringContext do
     #   pending "handles timeout"
   end
 
+  describe "#connect" do
+    it "can connect" do
+      port = unused_local_port
+      server = Socket.new(Socket::Family::INET, Socket::Type::STREAM, Socket::Protocol::TCP)
+      server.bind("127.0.0.1", port)
+      server.listen
+      client = nil
+
+      nursery do |n|
+        n.spawn { sleep 0.001; TCPSocket.new("127.0.0.1", port).close }
+      end
+
+      client = server.accept
+      client.not_nil!.family.should eq(Socket::Family::INET)
+      client.not_nil!.type.should eq(Socket::Type::STREAM)
+      client.not_nil!.protocol.should eq(Socket::Protocol::TCP)
+
+      client.not_nil!.close
+      server.close
+    end
+
+    #   pending "handles timeout"
+  end
+
   it "sends messages" do
     port = unused_local_port
     server = Socket.tcp(Socket::Family::INET6)

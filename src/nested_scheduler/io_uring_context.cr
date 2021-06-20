@@ -42,7 +42,7 @@ module NestedScheduler
       ring.sqe.poll_add(io, :POLLOUT, user_data: userdata(scheduler))
       ring_wait do |cqe|
         yield if cqe.canceled?
-        Crystal::System.print_error "\nsay wat\n"
+
         raise ::IO::Error.from_errno("poll", cqe.cqe_errno) unless cqe.success?
       end
     end
@@ -67,6 +67,25 @@ module NestedScheduler
         # # to the cqe needs to be marked as seen.
         wait_readable(socket, scheduler, timeout) do
           raise Socket::TimeoutError.new("Accept timed out")
+        end
+      end
+    end
+
+    def connect(socket, scheduler, addr, timeout)
+      loop do
+        ring.sqe.connect(socket, addr.to_unsafe.address, addr.size,
+          user_data: userdata(scheduler))
+        ring_wait(scheduler) do |cqe|
+          case cqe.cqe_errno
+          when Errno::NONE, Errno::EISCONN
+            return
+          when Errno::EINPROGRESS, Errno::EALREADY
+          else
+            return yield Socket::ConnectError.from_os_error("connect", os_error: cqe.cqe_errno)
+          end
+        end
+        wait_writable(socket, scheduler, timeout: timeout) do
+          return yield ::IO::TimeoutError.new("connect timed out")
         end
       end
     end
