@@ -58,7 +58,6 @@ module NestedScheduler
     end
 
     def connect(socket, _scheduler, addr, timeout)
-      timeout = timeout.seconds unless timeout.is_a? Time::Span | Nil
       loop do
         if LibC.connect(socket.fd, addr, addr.size) == 0
           return
