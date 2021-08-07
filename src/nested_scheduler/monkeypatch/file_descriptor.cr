@@ -4,14 +4,14 @@ module Crystal::System::FileDescriptor
   # TODO: Half the file belongs in libevent_context..
 
   private def unbuffered_read(slice : Bytes)
-    io, fiber = context
-    io.read(self, fiber, slice)
+    io, scheduler = context
+    io.read(self, scheduler, slice)
   end
 
   private def unbuffered_write(slice : Bytes)
-    io, fiber = context
+    io, scheduler = context
 
-    io.write(self, fiber, slice)
+    io.write(self, scheduler, slice)
   end
 
   private def system_info
@@ -24,7 +24,7 @@ module Crystal::System::FileDescriptor
   end
 
   private def system_close
-    io, fiber = context
+    io, scheduler = context
     # Perform libevent cleanup before LibC.close. Using a file
     # descriptor after it has been closed is never defined and can
     # always lead to undefined results as the system may reuse the fd.
@@ -41,8 +41,8 @@ module Crystal::System::FileDescriptor
     # Clear the @volatile_fd before actually closing it in order to
     # reduce the chance of reading an outdated fd value
     _fd = @volatile_fd.swap(-1)
-    io, fiber = context
-    io.close(_fd, fiber)
+    io, scheduler = context
+    io.close(_fd, scheduler)
   end
 
   def self.pread(fd, buffer, offset)

@@ -7,8 +7,7 @@ module NestedScheduler # struct?
       protected def context
         scheduler = Thread.current.scheduler
         io = scheduler.io || raise "BUG: No io context when required"
-        fiber = scheduler.@current
-        {io, fiber}
+        {io, scheduler}
       end
     end
   end

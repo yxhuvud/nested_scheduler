@@ -36,22 +36,16 @@ module NestedScheduler
       end
     end
 
-    def accept(socket, _fiber, timeout)
+    def accept(socket, _scheduler, timeout)
       loop do
         client_fd = LibC.accept(socket.fd, nil, nil)
+
         if client_fd == -1
           if socket.closed?
             return
           elsif Errno.value == Errno::EAGAIN
-            # Slightly ping-pongy flow control here unfortunately.
-            # This ends up calling Socket#add_read_event in
-            # Socket#wait_readable which in turn call #add_read_event
-            # above.
-            # TODO: Improve this, once io_uring is supported and we
-            # have full picture. This would avoid having to do
-            # dispatch on the union type of io_contexts..
-            socket.wait_readable(timeout: timeout, raise_if_closed: false) do
-              raise ::IO::TimeoutError.new("Accept timed out")
+            wait_readable(socket, _scheduler, timeout) do
+              raise Socket::TimeoutError.new("Accept timed out")
             end
             return if socket.closed?
           else
@@ -63,7 +57,7 @@ module NestedScheduler
       end
     end
 
-    def send(socket, _fiber, message, to addr : Socket::Address) : Int32
+    def send(socket, _scheduler, message, to addr : Socket::Address) : Int32
       slice = message.to_slice
       bytes_sent = LibC.sendto(socket.fd, slice.to_unsafe.as(Void*), slice.size, 0, addr, addr.size)
       raise Socket::Error.from_errno("Error sending datagram to #{addr}") if bytes_sent == -1
@@ -71,32 +65,32 @@ module NestedScheduler
       bytes_sent.to_i32
     end
 
-    def send(socket, _fiber, slice : Bytes, errno_message : String) : Int32
+    def send(socket, _scheduler, slice : Bytes, errno_message : String) : Int32
       socket.evented_send(slice, errno_message) do |slice|
         LibC.send(socket.fd, slice, slice.size, 0)
       end
     end
 
-    def socket_write(socket, _fiber, slice : Bytes, errno_message : String) : Nil
+    def socket_write(socket, _scheduler, slice : Bytes, errno_message : String) : Nil
       socket.evented_write(slice, errno_message) do |slice|
         LibC.send(socket.fd, slice, slice.size, 0)
       end
     end
 
-    def recv(socket, _fiber, slice : Bytes, errno_message : String)
+    def recv(socket, _scheduler, slice : Bytes, errno_message : String)
       socket.evented_read(slice, errno_message) do
         # Do we need .to_unsafe.as(Void*) ?
         LibC.recv(socket.fd, slice, slice.size, 0).to_i32
       end
     end
 
-    def recvfrom(socket, _fiber, slice, sockaddr, addrlen, errno_message)
+    def recvfrom(socket, _scheduler, slice, sockaddr, addrlen, errno_message)
       socket.evented_read(slice, errno_message) do |slice|
         LibC.recvfrom(socket.fd, slice, slice.size, 0, sockaddr, pointerof(addrlen))
       end
     end
 
-    def read(io, _fiber, slice : Bytes)
+    def read(io, _scheduler, slice : Bytes)
       io.evented_read(slice, "Error reading file") do
         LibC.read(io.fd, slice, slice.size).tap do |return_code|
           if return_code == -1 && Errno.value == Errno::EBADF
@@ -106,7 +100,7 @@ module NestedScheduler
       end
     end
 
-    def write(io, _fiber, slice : Bytes)
+    def write(io, _scheduler, slice : Bytes)
       io.evented_write(slice, "Error writing file") do |slice|
         LibC.write(io.fd, slice, slice.size).tap do |return_code|
           if return_code == -1 && Errno.value == Errno::EBADF
@@ -122,10 +116,10 @@ module NestedScheduler
     end
 
     def yield(scheduler, fiber)
-      sleep(scheduler, fiber, 0.seconds)
+      self.sleep(scheduler, fiber, 0.seconds)
     end
 
-    def yield(scheduler, fiber, to other)
+    def yield(fiber : Fiber, to other)
       fiber.resume_event.add(0.seconds)
     end
 
@@ -133,7 +127,7 @@ module NestedScheduler
       file.evented_close
     end
 
-    def close(fd, _fiber)
+    def close(fd, _scheduler)
       if LibC.close(fd) != 0
         case Errno.value
         when Errno::EINTR, Errno::EINPROGRESS
@@ -144,7 +138,7 @@ module NestedScheduler
       end
     end
 
-    def reschedule
+    def reschedule(_scheduler)
       loop do
         if runnable = yield
           unless runnable == Fiber.current

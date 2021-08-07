@@ -66,7 +66,7 @@ class ::Crystal::Scheduler
   end
 
   protected def reschedule : Nil
-    io.reschedule { @lock.sync { @runnables.shift? } }
+    io.reschedule(self) { @lock.sync { @runnables.shift? } }
 
     release_free_stacks
   end
@@ -81,7 +81,7 @@ class ::Crystal::Scheduler
 
   protected def yield(fiber : Fiber) : Nil
     io.yield(@current, to: fiber)
-    resume(other)
+    resume(fiber)
   end
 
   # Expected to be called from outside and that the scheduler is
