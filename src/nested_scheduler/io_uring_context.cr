@@ -190,7 +190,7 @@ module NestedScheduler
           end
         end
         wait_readable(socket, scheduler, timeout: socket.read_timeout) do
-          raise ::IO::TimeoutError.new("recvfrom timed out")
+          raise ::IO::TimeoutError.new("receive timed out")
         end
       end
     end
