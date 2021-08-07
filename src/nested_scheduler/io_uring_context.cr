@@ -26,24 +26,23 @@ module NestedScheduler
       self.class.new(self)
     end
 
-    # TODO
-    def add_read_event(pollable, fiber, timeout) : Nil
-      s = "read event"
-      LibC.write(STDOUT.fd, s.to_unsafe, s.size.to_u64)
-
-      raise "fda"
-      event = pollable.@read_event.get { Crystal::EventLoop.create_fd_read_event(pollable) }
-      event.add timeout
+    def wait_readable(io, scheduler, timeout)
+      # TODO: Actually do timeouts.
+      ring.sqe.poll_add(io, user_data: userdata(scheduler))
+      ring_wait do |cqe|
+        yield if cqe.canceled?
+        raise ::IO::Error.from_errno("poll", cqe.cqe_errno) unless cqe.success?
+      end
     end
 
-    # TODO
-    def add_write_event(pollable, fiber, timeout) : Nil
-      s = "write event"
-      LibC.write(STDOUT.fd, s.to_unsafe, s.size.to_u64)
-
-      raise "fda"
-      event = pollable.@write_event.get { Crystal::EventLoop.create_fd_write_event(pollable) }
-      event.add timeout
+    def wait_writable(io, scheduler, timeout)
+      # TODO: Actually do timeouts..
+      ring.sqe.poll_add(io, :POLLOUT, user_data: userdata(scheduler))
+      ring_wait do |cqe|
+        yield if cqe.canceled?
+        Crystal::System.print_error "\nsay wat\n"
+        raise ::IO::Error.from_errno("poll", cqe.cqe_errno) unless cqe.success?
+      end
     end
 
     def accept(socket, fiber, timeout)

@@ -6,14 +6,34 @@ module NestedScheduler
       self
     end
 
-    def add_read_event(pollable, _fiber, timeout) : Nil
-      event = pollable.@read_event.get { Crystal::EventLoop.create_fd_read_event(pollable) }
+    def wait_readable(io, scheduler, timeout)
+      readers = io.@readers.get { Deque(Fiber).new }
+      readers << Fiber.current
+      # add_read_event inlined:
+      event = io.@read_event.get { Crystal::EventLoop.create_fd_read_event(io) }
       event.add timeout
+
+      scheduler.actually_reschedule
+
+      if io.@read_timed_out
+        io.read_timed_out = false
+        yield
+      end
     end
 
-    def add_write_event(pollable, _fiber, timeout) : Nil
-      event = pollable.@write_event.get { Crystal::EventLoop.create_fd_write_event(pollable) }
+    def wait_writable(io, scheduler, timeout)
+      writers = io.@writers.get { Deque(Fiber).new }
+      writers << Fiber.current
+      # add_write_event inlined.
+      event = io.@write_event.get { Crystal::EventLoop.create_fd_write_event(io) }
       event.add timeout
+
+      scheduler.actually_reschedule
+
+      if io.@write_timed_out
+        io.write_timed_out = false
+        yield
+      end
     end
 
     def accept(socket, _fiber, timeout)
