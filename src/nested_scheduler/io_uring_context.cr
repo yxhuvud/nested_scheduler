@@ -92,7 +92,25 @@ module NestedScheduler
       end
     end
 
-    def send(socket, scheduler, message, to addr : Socket::Address) : Int32
+    def send(socket, scheduler, slice : Bytes, errno_message : String) : Int32
+      loop do
+        ring.sqe.send(socket, slice, user_data: userdata(scheduler))
+        ring_wait(scheduler) do |cqe|
+          case cqe
+          when .success?
+            return cqe.res
+          when .eagain?
+          else
+            raise ::IO::Error.from_os_error(errno_message, os_error: cqe.cqe_errno)
+          end
+        end
+        wait_writable(socket, scheduler, socket.write_timeout) do
+          raise ::IO::TimeoutError.new("connect timed out")
+        end
+      end
+    end
+
+    def send_to(socket, scheduler, message, to addr : Socket::Address) : Int32
       slice = message.to_slice
 
       # No sendto in uring, falling back to sendmsg.
@@ -110,17 +128,6 @@ module NestedScheduler
           cqe.res.to_i32
         else
           raise ::IO::Error.from_os_error("Error sending datagram to #{addr}", os_error: cqe.cqe_errno)
-        end
-      end
-    end
-
-    def send(socket, scheduler, slice : Bytes, errno_message : String) : Int32
-      ring.sqe.send(socket, slice, user_data: userdata(scheduler))
-      ring_wait(scheduler) do |cqe|
-        if cqe.success?
-          return cqe.res
-        else
-          raise ::IO::Error.from_os_error(errno_message, os_error: cqe.cqe_errno)
         end
       end
     end

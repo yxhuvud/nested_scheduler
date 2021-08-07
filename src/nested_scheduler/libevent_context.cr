@@ -75,18 +75,18 @@ module NestedScheduler
       end
     end
 
-    def send(socket, _scheduler, message, to addr : Socket::Address) : Int32
+    def send(socket, _scheduler, slice : Bytes, errno_message : String) : Int32
+      socket.evented_send(slice, errno_message) do |slice|
+        LibC.send(socket.fd, slice.to_unsafe.as(Void*), slice.size, 0)
+      end
+    end
+
+    def send_to(socket, _scheduler, message, to addr : Socket::Address) : Int32
       slice = message.to_slice
       bytes_sent = LibC.sendto(socket.fd, slice.to_unsafe.as(Void*), slice.size, 0, addr, addr.size)
       raise Socket::Error.from_errno("Error sending datagram to #{addr}") if bytes_sent == -1
       # to_i32 is fine because string/slice sizes are an Int32
       bytes_sent.to_i32
-    end
-
-    def send(socket, _scheduler, slice : Bytes, errno_message : String) : Int32
-      socket.evented_send(slice, errno_message) do |slice|
-        LibC.send(socket.fd, slice, slice.size, 0)
-      end
     end
 
     def socket_write(socket, _scheduler, slice : Bytes, errno_message : String) : Nil
