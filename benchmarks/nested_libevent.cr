@@ -1,7 +1,9 @@
 require "../src/nested_scheduler"
 require "http/server"
 
-NestedScheduler::ThreadPool.nursery(16) do |pl|
+threads = ARGV.any? ? ARGV[0].to_i : 4
+
+NestedScheduler::ThreadPool.nursery(threads) do |pl|
   pl.spawn(name: "serv") do
     server = HTTP::Server.new do |context|
       context.response.content_type = "text/plain"
