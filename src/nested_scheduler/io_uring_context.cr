@@ -11,10 +11,8 @@ module NestedScheduler
 
     #    getter :scheduler ::Crystal::Scheduler
 
-    def initialize(context = nil)
-      # TODO: Support for size.
-      # Other flags necessary? Dunno.
-      @ring = IOR::IOUring.new
+    def initialize(context = nil, size=32)
+      @ring = IOR::IOUring.new size: size
       # Set up a timeout with userdata 0. There will always be one,
       # and only one of these in flight. The purpose is to allow
       # preemption of other stuff. This also has the upside that we
