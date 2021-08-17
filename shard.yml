@@ -12,3 +12,4 @@ dependencies:
   ior:
     github: yxhuvud/ior
     branch: master
+    version: ~> 0.7.1

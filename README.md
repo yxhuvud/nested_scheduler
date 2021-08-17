@@ -7,15 +7,13 @@ inspiration from [Structured Concurrency](https://vorpus.org/blog/notes-on-struc
 
 ## Installation
 
-Step 1 and 2 might only be needed if the uring event context is used.
+Step 1 is only needed if the uring context will be used.
 
 TODO: Break it out to a library of its own for the uring context.
 
 1. Have kernel 5.11+ installed.
 
-2. Have a modern variant of liburing installed.
-
-3. Add the dependency to your `shard.yml`:
+2. Add the dependency to your `shard.yml`:
 
    ```yaml
    dependencies:

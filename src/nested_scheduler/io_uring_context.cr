@@ -20,7 +20,7 @@ module NestedScheduler
       # preemption of other stuff. This also has the upside that we
       # can *always* do a blocking wait. No reason to actually submit
       # it until we may want to wait though.
-      @ring.sqe.timeout(pointerof(WAIT_TIMESPEC), user_data: 0)
+      get_sqe.timeout(pointerof(WAIT_TIMESPEC), user_data: 0)
 
       @completions = Hash(UInt64, IOR::CQE).new
     end
@@ -31,7 +31,7 @@ module NestedScheduler
 
     def wait_readable(io, scheduler, timeout)
       # TODO: Actually do timeouts.
-      ring.sqe.poll_add(io, :POLLIN, user_data: userdata(scheduler))
+      get_sqe.poll_add(io, :POLLIN, user_data: userdata(scheduler))
       ring_wait(scheduler) do |cqe|
         yield if cqe.canceled?
 
@@ -41,7 +41,7 @@ module NestedScheduler
 
     def wait_writable(io, scheduler, timeout)
       # TODO: Actually do timeouts..
-      ring.sqe.poll_add(io, :POLLOUT, user_data: userdata(scheduler))
+      get_sqe.poll_add(io, :POLLOUT, user_data: userdata(scheduler))
       ring_wait(scheduler) do |cqe|
         yield if cqe.canceled?
 
@@ -52,7 +52,7 @@ module NestedScheduler
     def accept(socket, scheduler, timeout)
       # TODO: Timeout..
       loop do
-        ring.sqe.accept(socket, user_data: userdata(scheduler))
+        get_sqe.accept(socket, user_data: userdata(scheduler))
         ring_wait(scheduler) do |cqe|
           if cqe.success?
             return cqe.res
@@ -75,7 +75,7 @@ module NestedScheduler
 
     def connect(socket, scheduler, addr, timeout)
       loop do
-        ring.sqe.connect(socket, addr.to_unsafe.address, addr.size,
+        get_sqe.connect(socket, addr.to_unsafe.address, addr.size,
           user_data: userdata(scheduler))
         ring_wait(scheduler) do |cqe|
           case cqe.cqe_errno
@@ -94,7 +94,7 @@ module NestedScheduler
 
     def send(socket, scheduler, slice : Bytes, errno_message : String) : Int32
       loop do
-        ring.sqe.send(socket, slice, user_data: userdata(scheduler))
+        get_sqe.send(socket, slice, user_data: userdata(scheduler))
         ring_wait(scheduler) do |cqe|
           case cqe
           when .success?
@@ -122,7 +122,7 @@ module NestedScheduler
         iovlen: 1
       )
 
-      ring.sqe.sendmsg(socket, pointerof(hdr), user_data: userdata(scheduler))
+      get_sqe.sendmsg(socket, pointerof(hdr), user_data: userdata(scheduler))
       ring_wait(scheduler) do |cqe|
         if cqe.success?
           cqe.res.to_i32
@@ -135,7 +135,7 @@ module NestedScheduler
     # TODO: handle write timeout, errmess
     def socket_write(socket, scheduler, slice : Bytes, errno_message : String) : Nil
       loop do
-        ring.sqe.send(socket, slice, user_data: userdata(scheduler))
+        get_sqe.send(socket, slice, user_data: userdata(scheduler))
         ring_wait(scheduler) do |cqe|
           case cqe
           when .success?
@@ -155,7 +155,7 @@ module NestedScheduler
     # TODO: handle read timeout
     def recv(socket, scheduler, slice : Bytes, errno_message : String)
       loop do
-        ring.sqe.recv(socket, slice, user_data: userdata(scheduler))
+        get_sqe.recv(socket, slice, user_data: userdata(scheduler))
         ring_wait(scheduler) do |cqe|
           case cqe
           when .success? then return cqe.res
@@ -181,7 +181,7 @@ module NestedScheduler
       )
       # Fixme errono
       loop do
-        ring.sqe.recvmsg(socket, pointerof(hdr), user_data: userdata(scheduler))
+        get_sqe.recvmsg(socket, pointerof(hdr), user_data: userdata(scheduler))
         ring_wait(scheduler) do |cqe|
           case cqe
           when .success? then return cqe.res
@@ -202,7 +202,7 @@ module NestedScheduler
       # loop like this but I havn't figured out a better way to make
       # it work.
       loop do
-        ring.sqe.read(io, slice, user_data: userdata(scheduler))
+        get_sqe.read(io, slice, user_data: userdata(scheduler))
         ring_wait(scheduler) do |cqe|
           case cqe
           when .success? then return cqe.res
@@ -220,7 +220,7 @@ module NestedScheduler
     # TODO: add write timeout
     def write(io, scheduler, slice : Bytes)
       loop do
-        ring.sqe.write(io, slice, user_data: userdata(scheduler))
+        get_sqe.write(io, slice, user_data: userdata(scheduler))
         ring_wait(scheduler) do |cqe|
           case cqe
           when .success? then return cqe.res
@@ -242,17 +242,17 @@ module NestedScheduler
         tv_sec: LibC::TimeT.new(time.to_i),
         tv_nsec: time.nanoseconds
       )
-      ring.sqe.timeout(pointerof(timespec), user_data: userdata(fiber))
+      get_sqe.timeout(pointerof(timespec), user_data: userdata(fiber))
       ring_wait(scheduler) { }
     end
 
     def yield(scheduler, fiber)
-      ring.sqe.nop(user_data: userdata(fiber))
+      get_sqe.nop(user_data: userdata(fiber))
       ring_wait(scheduler) { }
     end
 
     def yield(fiber, to other)
-      ring.sqe.nop(user_data: userdata(fiber))
+      get_sqe.nop(user_data: userdata(fiber))
       # Normally reschedule submits but here the scheduler resumes
       # explicitly.
       ring.submit
@@ -264,7 +264,7 @@ module NestedScheduler
     end
 
     def close(fd, scheduler)
-      ring.sqe.close(fd, user_data: userdata(scheduler))
+      get_sqe.close(fd, user_data: userdata(scheduler))
       ring_wait(scheduler) do |cqe|
         return if cqe.success?
         return if cqe.cqe_errno.eintr? || cqe.cqe_errno.einprogress?
@@ -273,20 +273,13 @@ module NestedScheduler
       end
     end
 
+    # TODO: handle submit failure?
     def reschedule(scheduler)
       # Controls the ring submit as the submit_and_wait variant saves
       # us a syscall.
       loop do
         if runnable = yield
-          # Submits the SQE to make certain progress is made - this
-          # should make latency a bit more predictable than if
-          # multiple SQEs were batched together.
-
-          # Batching several (unrelated nonlinked) SQEs could make
-          # sense in certain contexts as it could improve the
-          # throughput, but lets avoid that for the basic case to keep
-          # latency down.
-          ring.submit if ring.unsubmitted?
+          ring.submit if ring.unsubmitted? && (ring.sq_space_left < 4)
         else
           # Note that #wait actually don't do a syscall after
           # #submit_and_wait as there is a waiting cqe already.
@@ -317,6 +310,7 @@ module NestedScheduler
       end
     end
 
+    @[AlwaysInline]
     private def handle_autowakeup?(cqe)
       if cqe.user_data.zero?
         # That is, CQE is timeout that has expired. Read the
@@ -326,10 +320,21 @@ module NestedScheduler
         # TODO: Instead of recurring timeouts like this, make use
         # of the new timeouts on submit_and_wait
         ring.seen cqe
-        ring.sqe.timeout(pointerof(WAIT_TIMESPEC), user_data: 0)
+        get_sqe.timeout(pointerof(WAIT_TIMESPEC), user_data: 0)
         true
       else
         false
+      end
+    end
+
+    @[AlwaysInline]
+    private def get_sqe
+      if sqe = ring.sqe
+        sqe
+      else
+        # TODO: handle error
+        ring.submit
+        ring.sqe.not_nil!
       end
     end
 
