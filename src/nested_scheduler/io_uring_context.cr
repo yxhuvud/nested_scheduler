@@ -20,6 +20,7 @@ module NestedScheduler
       # it until we may want to wait though.
       get_sqe.timeout(pointerof(WAIT_TIMESPEC), user_data: 0)
 
+      # TODO: Proooobably need to be synchronized :(
       @completions = Hash(UInt64, IOR::CQE).new
     end
 
@@ -283,12 +284,6 @@ module NestedScheduler
           # #submit_and_wait as there is a waiting cqe already.
           ring.submit_and_wait if ring.unsubmitted?
 
-          # TODO: Add lookup table for unprocessed cqes where all
-          # unprocessed CQEs are copied into. Needed because current
-          # version will either be able to go past the max items in
-          # flight, or only have at most 2 items in flight (due to
-          # timeout). Which of these depends on if the other branch do
-          # ring.submit or not. Requires ior support for iteration.
           cqe = ring.wait
           next if handle_autowakeup?(cqe)
           @completions[cqe.user_data] = cqe
