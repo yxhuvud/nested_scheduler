@@ -73,7 +73,15 @@ describe NestedScheduler do
       count.should be > 7 # allow for some overhead..
     end
 
-    pending "handles block exceptions"
+    it "re-raise fiber exceptions by default" do
+      ex = expect_raises NotImplementedError do
+        NestedScheduler::ThreadPool.nursery do |pl|
+          pl.spawn { raise NotImplementedError.new("fail") }
+        end
+      end
+
+      ex.message.should eq "Not Implemented: fail"
+    end
   end
 
   context "spawning original worker threads" do

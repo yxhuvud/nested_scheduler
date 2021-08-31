@@ -12,18 +12,10 @@ class Fiber
 
   def run
     GC.unlock_read
-    @proc.call
+    result = @proc.call
+    with_pool { |pool| pool.result_handler.register(pool, self, result, nil) }
   rescue ex
-    # TODO: Push to thread pool.
-    Crystal::System.print_error "fiber run: #{name}.\n"
-    Crystal::System.print_error " #{ex.backtrace.join("\n")}.\n"
-    if name = @name
-      STDERR.print "Unhandled exception in spawn(name: #{name}): "
-    else
-      STDERR.print "Unhandled exception in spawn: "
-    end
-    ex.inspect_with_backtrace(STDERR)
-    STDERR.flush
+    with_pool { |pool| pool.result_handler.register(pool, self, nil, ex) }
   ensure
     @alive = false
     cleanup
@@ -33,11 +25,7 @@ class Fiber
   def cleanup
     # Remove the current fiber from the linked list
     Fiber.fibers.delete(self)
-    scheduler = Thread.current.scheduler
-    # monkeypatch: Is this safe with regards to thread lifecycle? Dunno.
-    if pool = scheduler.pool
-      pool.unregister_fiber(self)
-    end
+    with_pool { |pool| pool.unregister_fiber(self) }
     # Delete the resume event if it was used by `yield` or `sleep`
     @resume_event.try &.free
     @timeout_event.try &.free
@@ -67,5 +55,13 @@ class Fiber
     end
 
     @timeout_event ||= Crystal::EventLoop.create_timeout_event(self)
+  end
+
+  private def with_pool
+    scheduler = Thread.current.scheduler
+    # monkeypatch: Is this safe with regards to thread lifecycle? Dunno.
+    if pool = scheduler.pool
+      yield pool
+    end
   end
 end

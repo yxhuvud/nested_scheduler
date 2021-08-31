@@ -4,6 +4,8 @@ require "../thread_pool"
 require "../io_context"
 require "../libevent_context"
 require "../io_uring_context"
+require "../result"
+require "../results/error_propagator"
 
 class ::Crystal::Scheduler
   property pool : ::NestedScheduler::ThreadPool?
@@ -39,6 +41,7 @@ class ::Crystal::Scheduler
   def self.init_workers
     NestedScheduler::ThreadPool.new(
       NestedScheduler::LibeventContext.new,
+      NestedScheduler::Results::ErrorPropagator.new,
       worker_count,
       bootstrap: true,
       name: "Root Pool"

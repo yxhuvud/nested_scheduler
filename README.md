@@ -86,6 +86,25 @@ possible to use it to spawn many threads and use it as a poor mans
 replacement for asynchronous file IO. Doing blocking file IO in the
 pool while continuing execution in the root pool is totally possible.
 
+### (Experimental) Exceptions
+
+The first exception raised will by bubble up the pool hiearchy.
+
+Assume the following code:
+
+```crystal
+require "nested_scheduler"
+
+NestedScheduler::ThreadPool.nursery do |pool|
+  pool.spawn { raise "Err" }
+end
+```
+
+What will happen here is that the pool will catch the error and then
+re-raise the exception in the outerlying scope. No more silent
+exceptions in fibers (unless you want them. People rarely do). Only
+the first exception is kept.
+
 ### Cancelation
 
 Currently only cooperative cancellation is supported. Example:

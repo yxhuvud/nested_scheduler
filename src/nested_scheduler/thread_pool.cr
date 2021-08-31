@@ -17,8 +17,14 @@ module NestedScheduler
     property spawned
 
     property io_context : ::NestedScheduler::IOContext
+    property result_handler : ::NestedScheduler::Result
 
-    def self.nursery(thread_count = 1, name = "Child pool", io_context = nil)
+    def self.nursery(
+      thread_count = 1,
+      name = "Child pool",
+      io_context = nil,
+      result_handler = NestedScheduler::Results::ErrorPropagator.new
+    )
       if thread_count < 1
         raise ArgumentError.new "No support for nested thread pools in same thread yet"
       end
@@ -29,18 +35,24 @@ module NestedScheduler
         end
         raise "Pool missing IO Context" unless io_context
       end
-      pool = new(io_context, thread_count, name: name)
+      pool = new(io_context, result_handler, thread_count, name: name)
       begin
         yield pool
         # TODO: Better exception behavior. Needs to support different
         # kinds of failure modes and stacktrace propagation.
       ensure
         pool.wait_until_done
+        pool.result_handler.result
       end
     end
 
-    def initialize(io_context : NestedScheduler::IOContext, count = 1, bootstrap = false, @name = nil)
-      @io_context = io_context
+    def initialize(
+      @io_context : NestedScheduler::IOContext,
+      @result_handler : NestedScheduler::Result,
+      count = 1,
+      bootstrap = false,
+      @name = nil
+    )
       @done_channel = Channel(Nil).new capacity: 1
       @rr_target = 0
       @workers = Array(Thread).new(initial_capacity: count)
