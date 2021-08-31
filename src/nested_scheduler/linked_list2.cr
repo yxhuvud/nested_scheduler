@@ -1,4 +1,3 @@
-
 module NestedScheduler
   # Same as Thread::LinkedList(T) but with different field names.
   # There is a need of a list per thread pool in addition to the
