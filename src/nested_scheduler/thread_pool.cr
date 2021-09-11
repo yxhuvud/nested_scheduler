@@ -1,10 +1,12 @@
 require "./linked_list2"
+require "./monkeypatch/scheduler"
 
 module NestedScheduler
   class ThreadPool
     enum State
       Ready
       Canceled
+      Finishing
       Done
     end
 
@@ -42,8 +44,23 @@ module NestedScheduler
         # kinds of failure modes and stacktrace propagation.
       ensure
         pool.wait_until_done
-        pool.result_handler.result
       end
+      # Unfortunately the result type is a union type of all possible
+      # result_handler results, which can become arbitrarily big. If
+      # there was some way to ground the type to only what the given
+      # result gives, then that would be nice..
+      pool.result_handler.result
+    end
+
+    # Collects the return values of the fiber blocks, in unspecified order.
+    # If an exception happen, it is propagated.
+    macro collect(t, **options)
+      NestedScheduler::ThreadPool.nursery(
+        result_handler: NestedScheduler::Results::ResultCollector({{t.id}}).new,
+        {{**options}}
+              ) do |pl|
+        {{ yield }}
+      end.as(Array({{t.id}}))
     end
 
     def initialize(
@@ -58,8 +75,11 @@ module NestedScheduler
       @workers = Array(Thread).new(initial_capacity: count)
       @fibers = NestedScheduler::LinkedList2(Fiber).new
       @spawned = Atomic(Int32).new(0)
-      @waiting_for_done = Atomic(Int32).new(0)
       @state = Atomic(State).new(State::Ready)
+      # Not using the state, as there would be many different waiting
+      # states, ie regular waiting and cancelled waiting.
+      @waiting_for_done = Atomic(Int32).new(0)
+
 
       if bootstrap
         # original init_workers hijack the current thread as part of the
@@ -103,9 +123,13 @@ module NestedScheduler
       workers[@rr_target % workers.size]
     end
 
-    def spawn(*, name : String? = nil, same_thread = false, &block)
+    def spawn(*, name : String? = nil, same_thread = false, &block : -> _)
+      unless state.ready?
+        raise "Pool is #{state}, can't spawn more fibers at this point"
+      end
+
       @spawned.add 1
-      fiber = Fiber.new(name: name, &block)
+      fiber = Fiber.new(name: name, &result_handler.init(&block))
 
       thread =
         if same_thread
@@ -138,7 +162,7 @@ module NestedScheduler
     # https://vorpus.org/blog/timeouts-and-cancellation-for-humans/
     def cancel
       # TBH, not totally certain it actually needs to be atomic..
-      return if state.done?
+      return if done?
 
       self.state = State::Canceled
     end
@@ -170,6 +194,9 @@ module NestedScheduler
 
       previous_running = @spawned.sub(1)
 
+      # This is probably a race condition, but I don't know how to
+      # properly fix it.
+
       # If @waiting_for_done == 0, then .nursery block hasn't finished yet,
       # which means there can still be new fibers that are spawned.
       if previous_running == 1 && @waiting_for_done.get > 0
@@ -194,6 +221,8 @@ module NestedScheduler
 
     def wait_until_done
       @waiting_for_done.set(1)
+      self.state = State::Finishing
+      # Potentially a race condition together with unregister_fiber?
       done_channel.receive if @spawned.get > 0
       self.state = State::Done
       @workers.each &.scheduler.shutdown

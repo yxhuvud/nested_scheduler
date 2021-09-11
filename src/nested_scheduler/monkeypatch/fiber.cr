@@ -12,10 +12,9 @@ class Fiber
 
   def run
     GC.unlock_read
-    result = @proc.call
-    with_pool { |pool| pool.result_handler.register(pool, self, result, nil) }
+    @proc.call
   rescue ex
-    with_pool { |pool| pool.result_handler.register(pool, self, nil, ex) }
+    with_pool { |pool| pool.result_handler.register_error(pool, self, ex) }
   ensure
     @alive = false
     cleanup

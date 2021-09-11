@@ -5,7 +5,7 @@ require "../io_context"
 require "../libevent_context"
 require "../io_uring_context"
 require "../result"
-require "../results/error_propagator"
+require "../results/*"
 
 class ::Crystal::Scheduler
   property pool : ::NestedScheduler::ThreadPool?
