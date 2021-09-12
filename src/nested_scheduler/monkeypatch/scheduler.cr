@@ -3,7 +3,6 @@ require "crystal/scheduler"
 require "../thread_pool"
 require "../io_context"
 require "../libevent_context"
-require "../io_uring_context"
 require "../result"
 require "../results/*"
 

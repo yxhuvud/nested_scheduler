@@ -35,24 +35,11 @@ class Fiber
 
   # TODO: move to io context
   def resume_event
-    if p = Thread.current.scheduler.pool
-      if p.io_context.class == NestedScheduler::IoUringContext
-        Crystal::System.print_error "TODO RE\n"
-        exit
-      end
-    end
     @resume_event ||= Crystal::EventLoop.create_resume_event(self)
   end
 
   # TODO: move to io context
   def timeout_event
-    if p = Thread.current.scheduler.pool
-      if p.io_context.class == NestedScheduler::IoUringContext
-        Crystal::System.print_error "TODO TE\n"
-        exit
-      end
-    end
-
     @timeout_event ||= Crystal::EventLoop.create_timeout_event(self)
   end
 
