@@ -7,13 +7,7 @@ inspiration from [Structured Concurrency](https://vorpus.org/blog/notes-on-struc
 
 ## Installation
 
-Step 1 is only needed if the uring context will be used.
-
-TODO: Break it out to a library of its own for the uring context.
-
-1. Have kernel 5.11+ installed.
-
-2. Add the dependency to your `shard.yml`:
+1. Add the dependency to your `shard.yml`:
 
    ```yaml
    dependencies:
@@ -21,7 +15,7 @@ TODO: Break it out to a library of its own for the uring context.
        github: yxhuvud/nested_scheduler
    ```
 
-4. Run `shards install`
+2. Run `shards install`
 
 ## Usage
 
@@ -107,7 +101,7 @@ the first exception is kept.
 
 ### Cancelation
 
-Currently only cooperative cancellation is supported. Example:
+Currently only cooperative cancellation of a pool is supported. Example:
 
 ```crystal
   count = 0
@@ -127,6 +121,9 @@ Currently only cooperative cancellation is supported. Example:
   # count will be > 7 when this point is reached.
 ```
 
+Not supported are things like limited noncooperative canceling or
+canceling of independent fibers without the surrounding pool.
+
 ## Future work
 
 Eventually it would be nice to have more stream lined ways of creating
@@ -135,12 +132,6 @@ dedicated new thread to process the work, it hasn't been necessary. It
 will be more relevant once there are cheaper ways to create nurseries
 that work gracefully within the current thread pool instead of having
 to create at least one new thread for every nursery.
-
-Oh, and the uring scheduler is very much experimental and not
-currently documented. Expect things to be broken. Given that it has
-the potential to allow asynchronous file IO, it is very much something
-that is desireable in the long run though. Any help improving it is
-welcome but don't expect it to work well (yet) :).
 
 ## Development
 
