@@ -80,7 +80,6 @@ module NestedScheduler
       # states, ie regular waiting and cancelled waiting.
       @waiting_for_done = Atomic(Int32).new(0)
 
-
       if bootstrap
         # original init_workers hijack the current thread as part of the
         # bootstrap process.
