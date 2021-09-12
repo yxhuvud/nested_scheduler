@@ -33,16 +33,6 @@ class Fiber
     Crystal::Scheduler.enqueue_free_stack @stack
   end
 
-  # TODO: move to io context
-  def resume_event
-    @resume_event ||= Crystal::EventLoop.create_resume_event(self)
-  end
-
-  # TODO: move to io context
-  def timeout_event
-    @timeout_event ||= Crystal::EventLoop.create_timeout_event(self)
-  end
-
   private def with_pool
     scheduler = Thread.current.scheduler
     # monkeypatch: Is this safe with regards to thread lifecycle? Dunno.
