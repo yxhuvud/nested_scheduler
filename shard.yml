@@ -1,15 +1,9 @@
 name: nested_scheduler
-version: 0.3.0
+version: 0.4.0
 
 authors:
-  - your-name-here <your-email-here>
+  - Linus Sellberg <sellberg+nospamplz@gmail.com>
 
 crystal: ">= 1.0.0"
 
 license: MIT
-
-dependencies:
-  ior:
-    github: yxhuvud/ior
-    branch: master
-    version: ~> 0.7.1
