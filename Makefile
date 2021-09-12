@@ -11,5 +11,6 @@ le :
 	crystal spec -Dpreview_mt --error-trace spec/libevent_context_spec.cr:30
 
 run  :
+	mkdir -p test
 	CRYSTAL_LOAD_DWARF=1 crystal spec -Dpreview_mt --error-trace --stats
 
