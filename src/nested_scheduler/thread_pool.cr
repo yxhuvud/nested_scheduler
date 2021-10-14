@@ -123,7 +123,7 @@ module NestedScheduler
     end
 
     def spawn(*, name : String? = nil, same_thread = false, &block : -> _)
-      unless state.ready?
+      unless state.in?({State::Ready, State::Finishing})
         raise "Pool is #{state}, can't spawn more fibers at this point"
       end
 
@@ -169,6 +169,10 @@ module NestedScheduler
     # Has the pool been canceled?
     def canceled?
       state.canceled?
+    end
+
+    def finishing?
+      state.finishing?
     end
 
     def done?

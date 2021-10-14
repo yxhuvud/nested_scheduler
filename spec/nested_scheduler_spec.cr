@@ -142,5 +142,13 @@ describe NestedScheduler do
       res = chan.receive + chan.receive
       res.should eq 3
     end
+
+    it "can nest spawns" do
+      executed = false
+      NestedScheduler::ThreadPool.nursery do |pl|
+        pl.spawn { spawn { executed = true } }
+      end
+      executed.should eq true
+    end
   end
 end
