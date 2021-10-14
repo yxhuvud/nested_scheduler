@@ -34,10 +34,6 @@ module Crystal::System::FileDescriptor
     # would that be a race condintion? Who knows, not I.
     io.prepare_close(self)
 
-    file_descriptor_close
-  end
-
-  def file_descriptor_close
     # Clear the @volatile_fd before actually closing it in order to
     # reduce the chance of reading an outdated fd value
     _fd = @volatile_fd.swap(-1)

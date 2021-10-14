@@ -53,13 +53,29 @@ module Crystal::System::Socket
     end
   end
 
+  private def system_close
+    io, scheduler = context
+    # Perform libevent cleanup before LibC.close. Using a file
+    # descriptor after it has been closed is never defined and can
+    # always lead to undefined results as the system may reuse the fd.
+    # This is not specific to libevent.
+
+    # However, will io_uring automatically cancel all outstanding ops or
+    # would that be a race condintion? Who knows, not I.
+    io.prepare_close(self)
+
+    # Clear the @volatile_fd before actually closing it in order to
+    # reduce the chance of reading an outdated fd value
+    _fd = @volatile_fd.swap(-1)
+    io, scheduler = context
+    io.close(_fd, scheduler)
+  end
+
   # def system_bind
   # def system_listen
   # def system_close_read
   # def system_close_write
   # def system_reuse_port?
   # def system_reuse_port=
-  # def system_close
   # private def shutdown(how) # doesnt
-  # private def unbuffered_close # for line that do libc.close x_x
 end

@@ -97,7 +97,6 @@ module NestedScheduler
 
     def recv(socket, _scheduler, slice : Bytes, errno_message : String)
       socket.evented_read(slice, errno_message) do
-        # Do we need .to_unsafe.as(Void*) ?
         LibC.recv(socket.fd, slice, slice.size, 0).to_i32
       end
     end
