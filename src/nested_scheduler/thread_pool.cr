@@ -132,10 +132,11 @@ module NestedScheduler
 
       thread =
         if same_thread
-          unless Thread.current.scheduler.pool == self
+          th = Thread.current
+          unless th.scheduler.pool == self
             raise "It is not possible to spawn into a different thread pool but keeping the same thread."
           else
-            Thread.current
+            th
           end
         else
           # There is a need to set the thread before calling enqueue
