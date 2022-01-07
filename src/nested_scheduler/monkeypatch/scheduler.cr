@@ -47,26 +47,6 @@ class ::Crystal::Scheduler
     )
   end
 
-  def run_loop
-    loop do
-      @lock.lock
-      if runnable = @runnables.shift?
-        @runnables << Fiber.current
-        @lock.unlock
-        runnable.resume
-      else
-        @sleeping = true
-        @lock.unlock
-        fiber = @fiber_channel.receive
-        @lock.lock
-        @sleeping = false
-        @runnables << Fiber.current
-        @lock.unlock
-        fiber.resume
-      end
-    end
-  end
-
   protected def reschedule : Nil
     io.reschedule(self) { @lock.sync { @runnables.shift? } }
 
