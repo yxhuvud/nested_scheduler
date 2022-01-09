@@ -99,6 +99,28 @@ re-raise the exception in the outerlying scope. No more silent
 exceptions in fibers (unless you want them. People rarely do). Only
 the first exception is kept.
 
+### (Experimental) Result collection
+
+By default only errors are kept track of. Something else that is
+common is to want to keep the results of the execution.
+
+That can be done using the following:
+
+```crystal
+require "nested_scheduler"
+
+values = NestedScheduler::ThreadPool.collect(Int32) do |pool|
+  pool.spawn { 4711 }
+  pool.spawn { 13 }
+end
+values.sort!
+```
+
+After executing `values` will have the value `[13, 4711]`. If there is
+an exception, or if one of the spawned fibers return something that is
+of an incorrect type then there will be an exception raised from the
+`collect` block.
+
 ### Cancelation
 
 Currently only cooperative cancellation of a pool is supported. Example:
