@@ -3,7 +3,33 @@
 Nested Scheduler is an expansion and/or replacement for the built in
 fiber scheduler of Crystal. It allows setting up thread pools with one
 or more dedicated threads that will handle a set of fibers. It draws
-inspiration from [Structured Concurrency](https://vorpus.org/blog/notes-on-structured-concurrency-or-go-statement-considered-harmful/).
+inspiration from [Notes on Structured
+Concurrency](https://vorpus.org/blog/notes-on-structured-concurrency-or-go-statement-considered-harmful/)
+and from [Structured Concurrency](https://250bpm.com/blog:71/). Both
+articles are very much recommended read.
+
+As such, it follows a couple of core ideas:
+
+* Don't break abstraction. All fibers have a predefined lifetime
+  defined by a section of code it can exist in and fiber lifetimes are
+  strictly hierarchical - no partial overlaps. This helps by
+  preventing many race conditions, but also by making silent leaks of
+  fibers that never finishes executing a bit more visible.
+* Simplify resource cleanup. This may sound counterintuitive in a
+  language like Crystal which has a garbage collector but it turns out
+  to be very nice to be able to use local variables defined in the
+  surrounding scope inside a fiber without fear of it going out of
+  scope. This is especially true for file handles or other resources
+  that often are closed when they go out of scope (using an `ensure`
+  statement)
+* If there is an exception in a fiber, then the exception will by
+  default be propagated and reraised in the originating context. This
+  creates debuggable stacktraces with information about both what went
+  wrong and how to get there.
+
+The constructs this library provide are related to constructs like
+supervisors in Erlang (a bit less powerful) and waitgroups/errgroups
+in Go (a bit more powerful).
 
 ## Installation
 
@@ -154,6 +180,9 @@ dedicated new thread to process the work, it hasn't been necessary. It
 will be more relevant once there are cheaper ways to create nurseries
 that work gracefully within the current thread pool instead of having
 to create at least one new thread for every nursery.
+
+Also, cancelation, timeouts and perhaps grace periods needs a lot more
+thought and work.
 
 ## Development
 
