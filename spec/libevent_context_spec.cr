@@ -14,6 +14,49 @@ describe NestedScheduler::LibeventContext do
     run.should be_true
   end
 
+  describe "#wait_readable" do
+    it "yields when file becomes readable" do
+      str = "hello world!"
+      left, right = UNIXSocket.pair
+      readable = false
+      nursery do |pl|
+        pl.spawn do
+          sleep 0.001
+          right.write(str.to_slice)
+        end
+        pl.spawn do
+          left.wait_readable
+          readable = true
+        end
+        pl.spawn do
+          sleep 0.0005
+          readable.should eq false
+          sleep 0.0011
+          readable.should eq true
+        end
+      end
+    end
+
+    it "supports timeouts" do
+      str = "hello world!"
+      left, right = UNIXSocket.pair
+      has_timed_out = false
+      nursery do |pl|
+        pl.spawn do
+          left.wait_readable(0.001.seconds) do
+            has_timed_out = true
+          end
+        end
+        pl.spawn do
+          sleep 0.0005
+          has_timed_out.should eq false
+          sleep 0.0015
+          has_timed_out.should eq true
+        end
+      end
+    end
+  end
+
   describe "write" do
     it "Can write to stdout" do
       nursery &.spawn { puts }
