@@ -23,14 +23,7 @@ module NestedScheduler::Results
     end
 
     def result : Array(T)
-      if error = @error
-        # Should there be a special exception for the nested case or should it simply propagate?
-        # TODO: Inject fiber name etc in exception.
-
-        raise error
-      else
-        @results
-      end
+      reraise_on_error { @results }
     end
 
     def init(&block : -> _) : ->
