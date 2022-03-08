@@ -1,4 +1,6 @@
 # Ideally, this class should not need to be monkeypatched but simply used by the libevent_context,
+require "io/evented"
+
 module IO::Evented
   setter write_timed_out
   setter read_timed_out
