@@ -61,8 +61,11 @@ class ::Crystal::Scheduler
       else
         @sleeping = true
         @lock.unlock
-        fiber = @fiber_channel.receive
-
+        begin
+          fiber = @fiber_channel.receive
+        rescue
+          break
+        end
         @lock.lock
         @sleeping = false
         @runnables << Fiber.current
