@@ -49,10 +49,6 @@ class ::Crystal::Scheduler
 
   def run_loop
     loop do
-      if p = pool
-        break if p.done?
-      end
-
       @lock.lock
       if runnable = @runnables.shift?
         @runnables << Fiber.current
@@ -61,10 +57,10 @@ class ::Crystal::Scheduler
       else
         @sleeping = true
         @lock.unlock
-        begin
-          fiber = @fiber_channel.receive
-        rescue
-          break
+        unless fiber = @fiber_channel.receive
+          # Thread pool has signaled that it is time to shutdown in wait_until_done.
+          # Do note that wait_until_done happens in the nursery origin thread.
+          return
         end
         @lock.lock
         @sleeping = false

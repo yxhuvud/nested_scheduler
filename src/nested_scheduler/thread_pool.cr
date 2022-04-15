@@ -199,7 +199,9 @@ module NestedScheduler
       previous_running = @spawned.sub(1)
 
       # This is probably a race condition, but I don't know how to
-      # properly fix it.
+      # properly fix it. Basically, if several fibers are created and
+      # then all finish before waiting_for_done is reached there could
+      # be trouble? It is hard to think about unfortunately..
 
       # If @waiting_for_done == 0, then .nursery block hasn't finished yet,
       # which means there can still be new fibers that are spawned.
@@ -229,7 +231,10 @@ module NestedScheduler
       # Potentially a race condition together with unregister_fiber?
       done_channel.receive if @spawned.get > 0
       self.state = State::Done
-      @workers.each &.scheduler.shutdown
+      current = Thread.current
+      @workers.each do |th|
+        th.scheduler.shutdown unless th == current
+      end
     end
   end
 end
