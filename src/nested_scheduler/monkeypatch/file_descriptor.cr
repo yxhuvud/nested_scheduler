@@ -14,17 +14,19 @@ module Crystal::System::FileDescriptor
     io.write(self, scheduler, slice)
   end
 
-  private def system_info
-    #  raise "TODO"
-    stat = uninitialized LibC::Stat
-    ret = File.fstat(fd, pointerof(stat))
+  # private def system_info
+  #   TODO - this is supported by uring so it needs to be delegated right
+  #   stat = uninitialized LibC::Stat
+  #   ret = File.fstat(fd, pointerof(stat))
 
-    if ret != 0
-      raise IO::Error.from_errno("Unable to get info")
-    end
+  #   if ret != 0
+  #     raise IO::Error.from_errno("Unable to get info")
+  #   end
+    
+  #   ::File::Info.new(stat)
 
-    FileInfo.new(stat)
-  end
+  #   # FileInfo.new(stat)
+  # end
 
   private def system_close
     io, scheduler = context
