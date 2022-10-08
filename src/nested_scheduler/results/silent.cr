@@ -4,7 +4,7 @@ module NestedScheduler::Results
     def initialize
     end
 
-    def register_error(_pool, _fiber, _error)
+    def register_error(pool, fiber, error)
     end
 
     def result
