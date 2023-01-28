@@ -10,7 +10,7 @@ module NestedScheduler
       readers = io.@readers.get { Deque(Fiber).new }
       readers << Fiber.current
       # add_read_event inlined:
-      event = io.@read_event.get { Crystal::EventLoop.create_fd_read_event(io) }
+      event = io.@read_event.get { Crystal::Scheduler.event_loop.create_fd_read_event(io) }
       event.add timeout
 
       scheduler.actually_reschedule
@@ -25,7 +25,7 @@ module NestedScheduler
       writers = io.@writers.get { Deque(Fiber).new }
       writers << Fiber.current
       # add_write_event inlined.
-      event = io.@write_event.get { Crystal::EventLoop.create_fd_write_event(io) }
+      event = io.@write_event.get { Crystal::Scheduler.event_loop.create_fd_write_event(io) }
       event.add timeout
 
       scheduler.actually_reschedule
@@ -163,7 +163,7 @@ module NestedScheduler
           end
           return
         else
-          Crystal::EventLoop.run_once
+          Crystal::Scheduler.event_loop.run_once
         end
       end
     end
