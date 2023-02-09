@@ -10,6 +10,10 @@ describe NestedScheduler do
       end
     end
 
+    it "spawns a fiber" do
+      NestedScheduler::ThreadPool.nursery {|pl| typeof(pl.spawn {}).should eq "Fiber" }
+    end
+
     it "exits immidiately if not spawned" do
       100.times do
         NestedScheduler::ThreadPool.nursery { }

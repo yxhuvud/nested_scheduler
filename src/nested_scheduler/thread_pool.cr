@@ -1,3 +1,4 @@
+require "concurrent"
 require "./linked_list2"
 require "./monkeypatch/scheduler"
 
@@ -122,7 +123,7 @@ module NestedScheduler
       workers[@rr_target % workers.size]
     end
 
-    def spawn(*, name : String? = nil, same_thread = false, &block : -> _)
+    def spawn(*, name : String? = nil, same_thread = false, &block : -> _) : Fiber
       unless state.in?({State::Ready, State::Finishing})
         raise "Pool is #{state}, can't spawn more fibers at this point"
       end
@@ -240,7 +241,7 @@ module NestedScheduler
 end
 
 # FIXME: move to better place.
-def spawn(*, name : String? = nil, same_thread = false, &block)
+def spawn(*, name : String? = nil, same_thread = false, &block) : Fiber
   if pool = Thread.current.scheduler.pool
     pool.spawn(name: name, same_thread: same_thread, &block)
   else
@@ -249,5 +250,6 @@ def spawn(*, name : String? = nil, same_thread = false, &block)
     fiber = Fiber.new(name, &block)
     fiber.helper_fiber = true
     Crystal::Scheduler.enqueue fiber
+    fiber
   end
 end
