@@ -23,7 +23,7 @@ module NestedScheduler::Results
     end
 
     def result
-      reraise_on_error {}
+      reraise_on_error { }
     end
 
     def init(&block : -> _) : ->

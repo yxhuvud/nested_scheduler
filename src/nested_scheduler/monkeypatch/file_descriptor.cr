@@ -22,7 +22,7 @@ module Crystal::System::FileDescriptor
   #   if ret != 0
   #     raise IO::Error.from_errno("Unable to get info")
   #   end
-    
+
   #   ::File::Info.new(stat)
 
   #   # FileInfo.new(stat)
