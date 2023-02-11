@@ -239,17 +239,3 @@ module NestedScheduler
     end
   end
 end
-
-# FIXME: move to better place.
-def spawn(*, name : String? = nil, same_thread = false, &block) : Fiber
-  if pool = Thread.current.scheduler.pool
-    pool.spawn(name: name, same_thread: same_thread, &block)
-  else
-    # Fiber Clean Loop and Signal Loop are set up before any pool is
-    # initiated. Handle these separately.
-    fiber = Fiber.new(name, &block)
-    fiber.helper_fiber = true
-    Crystal::Scheduler.enqueue fiber
-    fiber
-  end
-end
