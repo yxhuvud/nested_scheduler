@@ -22,8 +22,7 @@ class Fiber
   end
 
   def cleanup
-    # Remove the current fiber from the linked list
-    Fiber.fibers.delete(self)
+    Fiber.inactive(self)
     with_pool { |pool| pool.unregister_fiber(self) }
     # Delete the resume event if it was used by `yield` or `sleep`
     @resume_event.try &.free
