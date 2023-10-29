@@ -48,6 +48,7 @@ class ::Crystal::Scheduler
   end
 
   def run_loop
+    fiber_channel = self.fiber_channel
     loop do
       @lock.lock
       if runnable = @runnables.shift?
@@ -57,7 +58,7 @@ class ::Crystal::Scheduler
       else
         @sleeping = true
         @lock.unlock
-        unless fiber = @fiber_channel.receive
+        unless fiber = fiber_channel.receive
           # Thread pool has signaled that it is time to shutdown in wait_until_done.
           # Do note that wait_until_done happens in the nursery origin thread.
           return
@@ -69,6 +70,10 @@ class ::Crystal::Scheduler
         fiber.resume
       end
     end
+  end
+
+  def populate_fiber_channel
+    fiber_channel
   end
 
   protected def reschedule : Nil
@@ -94,6 +99,6 @@ class ::Crystal::Scheduler
   # waiting to receive fibers through the channel. Assumes there is no
   # work left.
   def shutdown
-    @fiber_channel.close
+    fiber_channel.close
   end
 end

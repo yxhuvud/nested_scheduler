@@ -107,6 +107,7 @@ module NestedScheduler
           scheduler.io_context = io_context.new
           fiber = scheduler.@current
           fiber.name = WORKER_NAME
+          scheduler.populate_fiber_channel
           pending.sub(1)
           scheduler.run_loop
         end
