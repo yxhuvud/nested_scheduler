@@ -5,9 +5,8 @@ module IO::Evented
   setter write_timed_out
   setter read_timed_out
 
-  def wait_readable(timeout = @read_timeout, *, raise_if_closed = true) : Nil
+  def wait_readable(timeout = @read_timeout, *, raise_if_closed = true, &) : Nil
     io, scheduler = context
-
     io.wait_readable(self, scheduler, timeout) do
       yield
     end
@@ -16,7 +15,7 @@ module IO::Evented
   end
 
   # :nodoc:
-  def wait_writable(timeout = @write_timeout) : Nil
+  def wait_writable(timeout = @write_timeout, &) : Nil
     io, scheduler = context
 
     io.wait_writable(self, scheduler, timeout) do
