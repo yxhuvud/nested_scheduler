@@ -14,17 +14,18 @@ describe NestedScheduler do
       NestedScheduler::ThreadPool.nursery { |pl| typeof(pl.spawn { }).should eq Fiber }
     end
 
-    it "exits immidiately if not spawned" do
+    it "kills any started fibers" do
       100.times do
         NestedScheduler::ThreadPool.nursery { }
       end
-
       i = 0
       Fiber.unsafe_each do |f|
         i += 1
       end
       i.should be < 10
+    end
 
+    it "exits immediately if not spawned" do
       Time.measure do
         NestedScheduler::ThreadPool.nursery { |_| }
       end.to_f.should be < 0.0001
