@@ -101,21 +101,25 @@ module NestedScheduler
       end
       pending = Atomic(Int32).new(count)
       count.times do
-        @workers << Thread.new do
-          scheduler = Thread.current.scheduler
-          scheduler.pool = self
-          scheduler.io_context = io_context.new
-          fiber = scheduler.@current
-          fiber.name = WORKER_NAME
-          scheduler.populate_fiber_channel
-          pending.sub(1)
-          scheduler.run_loop
-        end
+        @workers << new_worker(io_context.new) { pending.sub(1) }
       end
 
       # Wait for all worker threads to be fully ready to be used
       while pending.get > 0
         Fiber.yield
+      end
+    end
+
+    private def new_worker(io_context, &block)
+      Thread.new do
+        scheduler = Thread.current.scheduler
+        scheduler.pool = self
+        scheduler.io_context = io_context
+        fiber = scheduler.@current
+        fiber.name = WORKER_NAME
+        scheduler.populate_fiber_channel
+        block.call
+        scheduler.run_loop
       end
     end
 
