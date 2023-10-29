@@ -132,25 +132,27 @@ module NestedScheduler
       @spawned.add 1
       fiber = Fiber.new(name: name, &result_handler.init(&block))
 
-      thread =
-        if same_thread
-          th = Thread.current
-          unless th.scheduler.pool == self
-            raise "It is not possible to spawn into a different thread pool but keeping the same thread."
-          else
-            th
-          end
-        else
-          # There is a need to set the thread before calling enqueue
-          # because otherwise it will enqueue on calling pool.
-          next_thread!
-        end
-
+      thread = resolve_thread(same_thread)
       thread.scheduler.pool!.register_fiber(fiber)
       fiber.@current_thread.set(thread)
 
       Crystal::Scheduler.enqueue fiber
       fiber
+    end
+
+    private def resolve_thread(same_thread)
+      if same_thread
+        th = Thread.current
+        unless th.scheduler.pool == self
+          raise "It is not possible to spawn into a different thread pool but keeping the same thread."
+        else
+          th
+        end
+      else
+        # There is a need to set the thread before calling enqueue
+        # because otherwise it will enqueue on calling pool.
+        next_thread!
+      end
     end
 
     # Cooperatively cancel the current pool. That means the users of
