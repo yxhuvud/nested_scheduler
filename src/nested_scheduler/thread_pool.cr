@@ -82,22 +82,8 @@ module NestedScheduler
       @waiting_for_done = Atomic(Int32).new(0)
 
       if bootstrap
-        # original init_workers hijack the current thread as part of the
-        # bootstrap process.
-        thread = Thread.current
         count -= 1
-        scheduler = thread.scheduler
-        scheduler.pool = self
-        # unfortunately, io happen before init_workers is run, so the
-        # bootstrap scheduler needs a context.
-        if ctx = scheduler.io_context
-          raise "Mismatching io context" if ctx.class != io_context.class
-        else
-          scheduler.io_context = io_context.new
-        end
-        worker_loop = Fiber.new(name: WORKER_NAME) { thread.scheduler.run_loop }
-        @workers << thread
-        scheduler.actually_enqueue worker_loop
+        @workers << bootstrap_worker(io_context)
       end
       pending = Atomic(Int32).new(count)
       count.times do
@@ -108,6 +94,24 @@ module NestedScheduler
       while pending.get > 0
         Fiber.yield
       end
+    end
+
+    private def bootstrap_worker(io_context)
+      # original init_workers hijack the current thread as part of the
+      # bootstrap process.
+      thread = Thread.current
+      scheduler = thread.scheduler
+      scheduler.pool = self
+      # unfortunately, io happen before init_workers is run, so the
+      # bootstrap scheduler needs a context.
+      if ctx = scheduler.io_context
+        raise "Mismatching io context" if ctx.class != io_context.class
+      else
+        scheduler.io_context = io_context.new
+      end
+      worker_loop = Fiber.new(name: WORKER_NAME) { thread.scheduler.run_loop }
+      scheduler.actually_enqueue worker_loop
+      thread
     end
 
     private def new_worker(io_context, &block)
