@@ -8,6 +8,11 @@ require "../results/*"
 
 class ::Crystal::Scheduler
   property pool : ::NestedScheduler::ThreadPool?
+
+  def pool!
+    pool || raise "BUG"
+  end
+
   # TODO: Move io_context to Thread?
   property io_context : ::NestedScheduler::IOContext?
 

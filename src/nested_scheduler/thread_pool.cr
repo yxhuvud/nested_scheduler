@@ -146,11 +146,7 @@ module NestedScheduler
           next_thread!
         end
 
-      if pool = thread.scheduler.pool
-        pool.register_fiber(fiber)
-      else
-        raise "BUG"
-      end
+      thread.scheduler.pool!.register_fiber(fiber)
       fiber.@current_thread.set(thread)
 
       Crystal::Scheduler.enqueue fiber
