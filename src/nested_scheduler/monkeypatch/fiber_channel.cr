@@ -9,6 +9,7 @@ struct Crystal::FiberChannel
     oid = @worker_out.read_bytes(UInt64)
     if oid.zero?
       @worker_out.close
+      @worker_in.close
       nil
     else
       Pointer(Fiber).new(oid).as(Fiber)

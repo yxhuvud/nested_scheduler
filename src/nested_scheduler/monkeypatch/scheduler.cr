@@ -66,6 +66,7 @@ class ::Crystal::Scheduler
         unless fiber = fiber_channel.receive
           # Thread pool has signaled that it is time to shutdown in wait_until_done.
           # Do note that wait_until_done happens in the nursery origin thread.
+          io.stop
           return
         end
         @lock.lock

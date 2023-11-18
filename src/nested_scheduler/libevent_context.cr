@@ -167,5 +167,9 @@ module NestedScheduler
         end
       end
     end
+
+    def stop
+      Crystal::Scheduler.event_loop.stop
+    end
   end
 end

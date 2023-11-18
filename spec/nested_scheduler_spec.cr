@@ -25,10 +25,20 @@ describe NestedScheduler do
       i.should be < 10
     end
 
+    it "does not leak file descriptors" do
+      5.times do
+        NestedScheduler::ThreadPool.nursery(thread_count: 10) { }
+      end
+      pid = `pgrep crystal`.split.last
+      fds = `lsof -p #{pid}`.split("\n")
+      fds.size.should be < 50
+    end
+
     it "exits immediately if not spawned" do
+      # Unfortunately closing all fds take time.
       Time.measure do
         NestedScheduler::ThreadPool.nursery { |_| }
-      end.to_f.should be < 0.0001
+      end.to_f.should be < 0.0002
     end
 
     it "starts the pool and waits for it to finish" do
