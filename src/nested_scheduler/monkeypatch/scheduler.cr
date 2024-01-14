@@ -92,10 +92,6 @@ class ::Crystal::Scheduler
     io.sleep(self, @current, time)
   end
 
-  protected def yield : Nil
-    io.yield(self, @current)
-  end
-
   protected def yield(fiber : Fiber) : Nil
     io.yield(@current, to: fiber)
     resume(fiber)

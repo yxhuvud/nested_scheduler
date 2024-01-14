@@ -132,10 +132,6 @@ module NestedScheduler
       scheduler.actually_reschedule
     end
 
-    def yield(scheduler, fiber)
-      self.sleep(scheduler, fiber, 0.seconds)
-    end
-
     def yield(fiber : Fiber, to other)
       fiber.resume_event.add(0.seconds)
     end
