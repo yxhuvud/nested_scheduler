@@ -59,7 +59,7 @@ class ::Crystal::Scheduler
       if runnable = @runnables.shift?
         @runnables << Fiber.current
         @lock.unlock
-        runnable.resume
+        resume(runnable)
       else
         @sleeping = true
         @lock.unlock
@@ -73,7 +73,7 @@ class ::Crystal::Scheduler
         @sleeping = false
         @runnables << Fiber.current
         @lock.unlock
-        fiber.resume
+        resume(fiber)
       end
     end
   end
