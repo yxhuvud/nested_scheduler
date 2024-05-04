@@ -1,3 +1,9 @@
+# Recent updates 
+
+With the amount of changes in these parts of the source and the dependency on monkeypatching things, I'll probably won't update this to work with recent versions of crystal before it stabilizes again.
+
+The upside is that the changes that are made is generally great and will allow for better implementations. 
+
 # nested_scheduler
 
 Nested Scheduler is an expansion and/or replacement for the built in
